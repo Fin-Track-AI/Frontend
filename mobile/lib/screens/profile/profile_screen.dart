@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../routes/app_routes.dart';
-import '../../services/mock_data_service.dart';
+import '../../widgets/fintrack_header.dart';
+import '../../widgets/ask_ai_pill.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,205 +11,358 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _dataMaskingEnabled = true;
-  bool _rbiAaLinked = true;
-  bool _biometricLock = false;
+  bool _smsPermission = true;
+  bool _ocrStorage = true;
+  bool _privateAi = true;
 
   @override
   Widget build(BuildContext context) {
-    final user = MockDataService.userProfile;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Profile & Security'),
-      ),
+      appBar: const FinTrackHeader(),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           children: [
-            // User Profile Card
+            // Top Shield Badges
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.redLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lock_rounded, color: AppColors.red, size: 16),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.greenLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.shield_rounded, color: AppColors.green, size: 16),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: AppColors.greenLight, borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'ISO 27001 Certified & RBI Compliant',
+                      style: TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Center(
+              child: Text(
+                'Data Consent & Privacy',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Center(
+              child: Text(
+                'Manage device access permissions, encryption keys,\nand export or wipe your cloud footprint anytime.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.35),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Zero-Custody Promise Card
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.border),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: AppColors.primary.withOpacity(0.2),
-                    child: const Text(
-                      'SD',
-                      style: TextStyle(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.w800),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.lock_outline_rounded, color: AppColors.red, size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Zero-Custody Promise', style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(6)),
+                        child: const Text('Read-only', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user['name'] as String,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${user['employer']} • ${user['phone']}',
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'KYC-Lite Verified',
-                            style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Your financial privacy is non-negotiable. FinTrack is 100% read-only, end-to-end encrypted, and never holds money, initiates transfers, or shares personal data with advertisers.',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
-            const Text(
-              'Security & Compliance (DPDP Act)',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+            // Data Permissions Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Data Permissions', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: AppColors.greenLight, borderRadius: BorderRadius.circular(6)),
+                  child: const Text('3 Active', style: TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w700)),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
 
-            _buildSettingSwitchTile(
-              title: 'Sensitive Data Masking',
-              subtitle: 'Mask PAN, Bank Account & UPI IDs across UI views',
-              value: _dataMaskingEnabled,
-              onChanged: (v) => setState(() => _dataMaskingEnabled = v),
-              icon: Icons.visibility_off_outlined,
-            ),
-            const SizedBox(height: 10),
-
-            _buildSettingSwitchTile(
-              title: 'RBI Account Aggregator Connection',
-              subtitle: 'Read-only financial insights sync is ACTIVE',
-              value: _rbiAaLinked,
-              onChanged: (v) => setState(() => _rbiAaLinked = v),
-              icon: Icons.account_balance_outlined,
-            ),
-            const SizedBox(height: 10),
-
-            _buildSettingSwitchTile(
-              title: 'App Lock / Biometrics',
-              subtitle: 'Require FaceID / Fingerprint to open FinTrack',
-              value: _biometricLock,
-              onChanged: (v) => setState(() => _biometricLock = v),
-              icon: Icons.fingerprint_rounded,
-            ),
-            const SizedBox(height: 24),
-
-            const Text(
-              'Team & Workspace',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+            // Permission 1: UPI & SMS Metadata
+            _buildPermissionCard(
+              icon: Icons.sms_outlined,
+              iconBg: AppColors.redLight,
+              iconColor: AppColors.red,
+              title: 'UPI & SMS Metadata',
+              desc: 'Reads transaction SMS alerts and UPI reference notes to auto-categorize daily spending. Credentials, bank pins, and OTPs are strictly excluded and never accessed.',
+              value: _smsPermission,
+              onChanged: (v) => setState(() => _smsPermission = v),
+              footer: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.account_balance_outlined, size: 14, color: AppColors.textMuted),
+                      SizedBox(width: 4),
+                      Text('View Synced Accounts', style: TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  const Text('Revoke Access', style: TextStyle(color: AppColors.red, fontSize: 11, fontWeight: FontWeight.w700)),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
+            // Permission 2: OCR Bill & Receipt Storage
+            _buildPermissionCard(
+              icon: Icons.receipt_long_outlined,
+              iconBg: AppColors.amberLight,
+              iconColor: AppColors.amber,
+              title: 'OCR Bill & Receipt Storage',
+              desc: 'Stores scanned corporate receipts in an encrypted vault for employer reimbursement reporting and audit proof.',
+              value: _ocrStorage,
+              onChanged: (v) => setState(() => _ocrStorage = v),
+              badgeInfo: 'Encrypted Vault (14 Receipts)',
+            ),
+            const SizedBox(height: 10),
+
+            // Permission 3: Private AI Financial Insights
+            _buildPermissionCard(
+              icon: Icons.auto_awesome,
+              iconBg: AppColors.primaryLight,
+              iconColor: AppColors.primary,
+              title: 'Private AI Financial Insights',
+              desc: 'Allows FinTrack AI to analyze spending trends locally. Your financial data is never used to train public models.',
+              value: _privateAi,
+              onChanged: (v) => setState(() => _privateAi = v),
+              badgeInfo: 'Edge Device Inference',
+            ),
+            const SizedBox(height: 20),
+
+            // Security Safeguards
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.border),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTeamMemberRow('Samarth Devadiga', 'Scrum Master / UI-UX Coding (mobile/)'),
-                  const Divider(color: AppColors.divider, height: 20),
-                  _buildTeamMemberRow('Atharva', 'Backend & API Architecture (backend/)'),
-                  const Divider(color: AppColors.divider, height: 20),
-                  _buildTeamMemberRow('Ameya Sagwekar', 'BA & UI-UX Figma Design (docs/)'),
-                  const Divider(color: AppColors.divider, height: 20),
-                  _buildTeamMemberRow('Ritesh', 'DB Infrastructure & APIs (backend/)'),
+                  Row(
+                    children: const [
+                      Icon(Icons.shield_outlined, color: AppColors.primary, size: 18),
+                      SizedBox(width: 8),
+                      Text('Security Safeguards', style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('256-bit AES & TLS 1.3', style: TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w800)),
+                        SizedBox(height: 2),
+                        Text('Resting data is encrypted with military-grade 256-bit AES. Active connections use TLS 1.3 forward secrecy.', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Masked Active Identifiers', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  _buildMaskedIdRow('rit***@okicici', 'Connected'),
+                  const SizedBox(height: 6),
+                  _buildMaskedIdRow('9876****10@hdfc', 'Connected'),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
+            // Request Data Export
             OutlinedButton.icon(
-              icon: const Icon(Icons.logout_rounded, color: AppColors.error, size: 18),
-              label: const Text('Log Out & Revoke Local Tokens', style: TextStyle(color: AppColors.error)),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.error),
+                backgroundColor: AppColors.surface,
+                minimumSize: const Size(double.infinity, 48),
               ),
+              icon: const Icon(Icons.file_download_outlined, size: 18, color: AppColors.primary),
+              label: const Text('Request Data Export (JSON/CSV)', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
               onPressed: () {
-                Navigator.pushNamedAndRemoveUntil(context, AppRoutes.welcome, (r) => false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Export link sent to your registered email')),
+                );
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
+
+            // Delete Account & Wipe Financial History
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.redLight.withOpacity(0.5),
+                side: const BorderSide(color: Color(0xFFFCA5A5)),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.red),
+              label: const Text('Delete Account & Wipe Financial History', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w700)),
+              onPressed: () {},
+            ),
+
+            const AskAiPill(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSettingSwitchTile({
+  Widget _buildPermissionCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
     required String title,
-    required String subtitle,
+    required String desc,
     required bool value,
     required ValueChanged<bool> onChanged,
-    required IconData icon,
+    Widget? footer,
+    String? badgeInfo,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.primary, size: 22),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-              ],
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: iconColor, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Container(width: 5, height: 5, decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        const Text('Status: Active', style: TextStyle(color: AppColors.green, fontSize: 10, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: value,
+                activeColor: AppColors.primary,
+                onChanged: onChanged,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(desc, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.35)),
+          if (badgeInfo != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(8)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, size: 12, color: AppColors.textMuted),
+                  const SizedBox(width: 6),
+                  Text(badgeInfo, style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w600)),
+                ],
+              ),
             ),
-          ),
-          Switch(
-            value: value,
-            activeColor: AppColors.primary,
-            onChanged: onChanged,
-          ),
+          ],
+          if (footer != null) ...[
+            const Divider(color: AppColors.divider, height: 20),
+            footer,
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildTeamMemberRow(String name, String role) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(name, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
-        Text(role, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-      ],
+  Widget _buildMaskedIdRow(String id, String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.fingerprint, size: 14, color: AppColors.textMuted),
+              const SizedBox(width: 8),
+              Text(id, style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+            ],
+          ),
+          Text(status, style: const TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 }

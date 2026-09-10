@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'routes/app_routes.dart';
+import 'screens/main_shell.dart';
+import 'screens/dashboard/expense_dashboard_screen.dart';
+import 'screens/expenses/expenses_list_screen.dart';
+import 'screens/reimbursement/reimbursement_screen.dart';
+import 'screens/split/split_expenses_screen.dart';
+import 'screens/assistant/ai_assistant_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding/welcome_screen.dart';
 import 'screens/onboarding/phone_otp_screen.dart';
 import 'screens/onboarding/kyc_lite_screen.dart';
 import 'screens/onboarding/employer_link_screen.dart';
 import 'screens/onboarding/consent_screen.dart';
-import 'screens/main_shell.dart';
-import 'screens/dashboard/expense_dashboard_screen.dart';
-import 'screens/reimbursement/reimbursement_screen.dart';
-import 'screens/split/split_expenses_screen.dart';
-import 'screens/assistant/ai_assistant_screen.dart';
-import 'screens/profile/profile_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,8 +28,8 @@ class FinTrackApp extends StatelessWidget {
     return MaterialApp(
       title: 'FinTrack',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      initialRoute: AppRoutes.splash,
+      theme: AppTheme.lightTheme,
+      initialRoute: AppRoutes.mainShell,
       routes: {
         AppRoutes.splash: (context) => const SplashScreen(),
         AppRoutes.welcome: (context) => const WelcomeScreen(),
