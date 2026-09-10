@@ -1,5 +1,6 @@
 class AppRoutes {
   static const String splash = '/';
+  static const String login = '/auth/login';
   static const String welcome = '/onboarding/welcome';
   static const String phoneOtp = '/onboarding/phone-otp';
   static const String kycLite = '/onboarding/kyc-lite';
@@ -8,6 +9,7 @@ class AppRoutes {
   
   static const String mainShell = '/main';
   static const String dashboard = '/dashboard';
+  static const String expenses = '/expenses';
   static const String reimbursement = '/reimbursement';
   static const String newClaim = '/reimbursement/new';
   static const String splitExpenses = '/split';

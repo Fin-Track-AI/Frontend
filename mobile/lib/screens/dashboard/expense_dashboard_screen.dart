@@ -4,6 +4,7 @@ import '../../widgets/fintrack_header.dart';
 import '../../widgets/ask_ai_pill.dart';
 import '../transaction/add_transaction_modal.dart';
 import '../../routes/app_routes.dart';
+import '../../services/mock_data_service.dart';
 
 class ExpenseDashboardScreen extends StatelessWidget {
   const ExpenseDashboardScreen({super.key});
@@ -24,15 +25,15 @@ class ExpenseDashboardScreen extends StatelessWidget {
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       'Friday, 12 September',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w600),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Good morning,\nSamarth',
-                      style: TextStyle(
+                      'Good morning,\n${(MockDataService.userProfile['name'] as String?)?.split(' ').first ?? 'Samarth'}',
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,

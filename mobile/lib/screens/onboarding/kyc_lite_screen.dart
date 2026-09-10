@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
+import '../../services/mock_data_service.dart';
 
 class KycLiteScreen extends StatefulWidget {
   const KycLiteScreen({super.key});
@@ -10,11 +11,24 @@ class KycLiteScreen extends StatefulWidget {
 }
 
 class _KycLiteScreenState extends State<KycLiteScreen> {
-  final TextEditingController _nameController = TextEditingController(text: 'Samarth Devadiga');
-  final TextEditingController _panController = TextEditingController(text: 'ABCDE1234F');
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _panController = TextEditingController();
   bool _isLoading = false;
 
   void _submitKyc() {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your full name')),
+      );
+      return;
+    }
+    
+    // Save entered name and PAN to user profile state
+    MockDataService.userProfile['name'] = _nameController.text.trim();
+    if (_panController.text.trim().isNotEmpty) {
+      MockDataService.userProfile['pan'] = _panController.text.trim();
+    }
+
     setState(() => _isLoading = true);
     Future.delayed(const Duration(milliseconds: 500), () {
       setState(() => _isLoading = false);
@@ -58,7 +72,8 @@ class _KycLiteScreenState extends State<KycLiteScreen> {
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Full Name (as per Bank)',
+                  labelText: 'Full Name (as per Bank Account)',
+                  hintText: 'e.g. Samarth Devadiga',
                   prefixIcon: Icon(Icons.person_outline, color: AppColors.textMuted),
                 ),
               ),
@@ -69,9 +84,10 @@ class _KycLiteScreenState extends State<KycLiteScreen> {
                 textCapitalization: TextCapitalization.characters,
                 maxLength: 10,
                 decoration: const InputDecoration(
-                  labelText: 'PAN Number (Masked)',
+                  labelText: 'PAN Number (Optional / Masked)',
+                  hintText: 'e.g. ABCDE1234F',
                   prefixIcon: Icon(Icons.badge_outlined, color: AppColors.textMuted),
-                  helperText: 'e.g. •••••1234F (Stored securely via DPDP encryption)',
+                  helperText: 'Masked at rest (•••••1234F) via DPDP encryption',
                   helperStyle: TextStyle(color: AppColors.textMuted, fontSize: 12),
                   counterText: '',
                 ),

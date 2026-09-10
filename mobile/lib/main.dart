@@ -9,6 +9,7 @@ import 'screens/split/split_expenses_screen.dart';
 import 'screens/assistant/ai_assistant_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/welcome_screen.dart';
 import 'screens/onboarding/phone_otp_screen.dart';
 import 'screens/onboarding/kyc_lite_screen.dart';
@@ -32,6 +33,7 @@ class FinTrackApp extends StatelessWidget {
       initialRoute: AppRoutes.mainShell,
       routes: {
         AppRoutes.splash: (context) => const SplashScreen(),
+        AppRoutes.login: (context) => const LoginScreen(),
         AppRoutes.welcome: (context) => const WelcomeScreen(),
         AppRoutes.phoneOtp: (context) => const PhoneOtpScreen(),
         AppRoutes.kycLite: (context) => const KycLiteScreen(),
@@ -39,6 +41,7 @@ class FinTrackApp extends StatelessWidget {
         AppRoutes.consent: (context) => const ConsentScreen(),
         AppRoutes.mainShell: (context) => const MainShell(),
         AppRoutes.dashboard: (context) => const ExpenseDashboardScreen(),
+        AppRoutes.expenses: (context) => const ExpensesListScreen(),
         AppRoutes.reimbursement: (context) => const ReimbursementScreen(),
         AppRoutes.splitExpenses: (context) => const SplitExpensesScreen(),
         AppRoutes.aiAssistant: (context) => const AiAssistantScreen(),
