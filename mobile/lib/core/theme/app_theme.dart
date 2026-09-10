@@ -10,6 +10,8 @@ class AppColors {
   static const Color primary = Color(0xFFFA5533); // Vibrant Coral Orange from Figma (+Add Expense, CTAs)
   static const Color primaryHover = Color(0xFFE04523);
   static const Color primaryLight = Color(0xFFFFF2EF); // Coral tint
+  static const Color secondary = Color(0xFF6366F1); // Indigo / Violet
+  static const Color accent = Color(0xFF38BDF8); // Sky Blue
   
   // Financial Indicators
   static const Color green = Color(0xFF059669); // Emerald Green for +credits, positive balances
@@ -25,7 +27,9 @@ class AppColors {
   static const Color blue = Color(0xFF2563EB); // Indigo/Blue for corporate, tags
   static const Color blueLight = Color(0xFFEFF6FF);
   
-  // Neutrals & Text
+  // Neutrals & Surfaces
+  static const Color cardBg = Color(0xFFFFFFFF);
+  static const Color surfaceLight = Color(0xFFF1F5F9);
   static const Color textPrimary = Color(0xFF0F172A); // Deep slate
   static const Color textSecondary = Color(0xFF475569); // Mid slate
   static const Color textMuted = Color(0xFF94A3B8); // Light slate
