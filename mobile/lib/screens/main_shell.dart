@@ -9,75 +9,84 @@ import 'profile/profile_screen.dart';
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
+  static final ValueNotifier<int> activeTabNotifier = ValueNotifier<int>(0);
+
+  static void navigateToTab(int index) {
+    activeTabNotifier.value = index;
+  }
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-
   final List<Widget> _screens = const [
-    ExpenseDashboardScreen(), // Home (Page 4)
-    ExpensesListScreen(),     // Expenses (Page 7)
-    ReimbursementScreen(),    // Claims (Page 2)
-    SplitExpensesScreen(),    // Split (Page 1)
-    ProfileScreen(),          // Profile (Page 6)
+    ExpenseDashboardScreen(), // 0: Home (Page 4)
+    ExpensesListScreen(),     // 1: Expenses (Page 7)
+    ReimbursementScreen(),    // 2: Claims (Page 2)
+    SplitExpensesScreen(),    // 3: Split (Page 1)
+    ProfileScreen(),          // 4: Profile (Page 6)
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 1),
+    return ValueListenableBuilder<int>(
+      valueListenable: MainShell.activeTabNotifier,
+      builder: (context, currentIndex, _) {
+        return Scaffold(
+          body: IndexedStack(
+            index: currentIndex,
+            children: _screens,
           ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          backgroundColor: AppColors.surface,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textMuted,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          onTap: (index) {
-            setState(() => _currentIndex = index);
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_rounded, size: 22),
-              label: 'Home',
+          bottomNavigationBar: Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(
+                top: BorderSide(color: AppColors.border, width: 1),
+              ),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_outlined, size: 22),
-              activeIcon: Icon(Icons.receipt_long_rounded, size: 22),
-              label: 'Expenses',
+            child: BottomNavigationBar(
+              currentIndex: currentIndex,
+              backgroundColor: AppColors.surface,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.textMuted,
+              selectedFontSize: 11,
+              unselectedFontSize: 11,
+              type: BottomNavigationBarType.fixed,
+              elevation: 0,
+              onTap: (index) {
+                MainShell.activeTabNotifier.value = index;
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.grid_view_rounded, size: 22),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.receipt_long_outlined, size: 22),
+                  activeIcon: Icon(Icons.receipt_long_rounded, size: 22),
+                  label: 'Expenses',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.description_outlined, size: 22),
+                  activeIcon: Icon(Icons.description_rounded, size: 22),
+                  label: 'Claims',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.incomplete_circle_outlined, size: 22),
+                  activeIcon: Icon(Icons.incomplete_circle_rounded, size: 22),
+                  label: 'Split',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline_rounded, size: 22),
+                  activeIcon: Icon(Icons.person_rounded, size: 22),
+                  label: 'Profile',
+                ),
+              ],
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.description_outlined, size: 22),
-              activeIcon: Icon(Icons.description_rounded, size: 22),
-              label: 'Claims',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.incomplete_circle_outlined, size: 22),
-              activeIcon: Icon(Icons.incomplete_circle_rounded, size: 22),
-              label: 'Split',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded, size: 22),
-              activeIcon: Icon(Icons.person_rounded, size: 22),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
