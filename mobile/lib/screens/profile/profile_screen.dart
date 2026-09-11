@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../core/theme/app_theme.dart';
+import '../../routes/app_routes.dart';
+import '../../services/auth_service.dart';
+import '../../services/user_financial_service.dart';
+import '../onboarding/financial_setup_screen.dart';
 import '../../widgets/fintrack_header.dart';
 import '../../widgets/ask_ai_pill.dart';
 
@@ -15,6 +21,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _ocrStorage = true;
   bool _privateAi = true;
 
+  Map<String, dynamic>? _savedUser;
+  final AuthService _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSession();
+  }
+
+  Future<void> _loadUserSession() async {
+    final user = await _authService.getSavedUser();
+    if (user != null && mounted) {
+      setState(() => _savedUser = user);
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    await _authService.logout();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Logged out successfully.')),
+    );
+    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+  }
+
+  Future<void> _updateBackendConsent(String type, bool val) async {
+    try {
+      await http.post(
+        Uri.parse('http://localhost:5001/api/v1/consent'),
+        headers: {
+          'Authorization': 'Bearer mock_token_123',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'upiConsent': _smsPermission,
+          'billStorageConsent': _ocrStorage,
+          'aiUsageConsent': _privateAi,
+        }),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(val ? 'Consent granted for $type' : 'Consent revoked for $type (feature access blocked)'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Profile consent sync error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -24,6 +82,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           children: [
+            // Logged In User Account Session Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.primary, width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: AppColors.primaryLight,
+                    child: Text(
+                      ((_savedUser?['name'] ?? 'U') as String)[0].toUpperCase(),
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _savedUser?['name'] ?? 'FinTrack User',
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Phone: +91 ${_savedUser?['phone'] ?? '9876543210'}',
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          _savedUser?['email'] ?? 'user@fintrack.app',
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.logout_rounded, color: AppColors.red),
+                    tooltip: 'Log Out Session',
+                    onPressed: _handleLogout,
+                  ),
+                ],
+              ),
+            ),
+
             // Top Shield Badges
             Center(
               child: Row(
@@ -148,7 +255,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'UPI & SMS Metadata',
               desc: 'Reads transaction SMS alerts and UPI reference notes to auto-categorize daily spending. Credentials, bank pins, and OTPs are strictly excluded and never accessed.',
               value: _smsPermission,
-              onChanged: (v) => setState(() => _smsPermission = v),
+              onChanged: (v) {
+                setState(() => _smsPermission = v);
+                _updateBackendConsent('UPI Sync', v);
+              },
               footer: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -173,7 +283,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'OCR Bill & Receipt Storage',
               desc: 'Stores scanned corporate receipts in an encrypted vault for employer reimbursement reporting and audit proof.',
               value: _ocrStorage,
-              onChanged: (v) => setState(() => _ocrStorage = v),
+              onChanged: (v) {
+                setState(() => _ocrStorage = v);
+                _updateBackendConsent('Bill Storage', v);
+              },
               badgeInfo: 'Encrypted Vault (14 Receipts)',
             ),
             const SizedBox(height: 10),
@@ -186,7 +299,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Private AI Financial Insights',
               desc: 'Allows FinTrack AI to analyze spending trends locally. Your financial data is never used to train public models.',
               value: _privateAi,
-              onChanged: (v) => setState(() => _privateAi = v),
+              onChanged: (v) {
+                setState(() => _privateAi = v);
+                _updateBackendConsent('AI Insights', v);
+              },
               badgeInfo: 'Edge Device Inference',
             ),
             const SizedBox(height: 20),
@@ -249,16 +365,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Delete Account & Wipe Financial History
+            // Edit Salary & Fixed Expenses Setup
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.surface,
+                minimumSize: const Size(double.infinity, 48),
+                side: const BorderSide(color: AppColors.primary, width: 1.2),
+              ),
+              icon: const Icon(Icons.tune_rounded, size: 18, color: AppColors.primary),
+              label: const Text('Edit Monthly Salary & Fixed Expenses', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => FinancialSetupScreen(isModalEdit: true)),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+
+            // Reset to Fresh Account & Clear Data
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 backgroundColor: AppColors.redLight.withOpacity(0.5),
                 side: const BorderSide(color: Color(0xFFFCA5A5)),
                 minimumSize: const Size(double.infinity, 48),
               ),
-              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.red),
-              label: const Text('Delete Account & Wipe Financial History', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w700)),
-              onPressed: () {},
+              icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.red),
+              label: const Text('Reset to Fresh Account (Clear All Data)', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w700)),
+              onPressed: () async {
+                await UserFinancialService().resetAccountToFreshState();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Account reset to fresh state! Launching setup...')),
+                );
+                Navigator.pushNamedAndRemoveUntil(context, AppRoutes.financialSetup, (route) => false);
+              },
             ),
 
             const AskAiPill(),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../screens/main_shell.dart';
-import '../routes/app_routes.dart';
 
 class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearchTap;
@@ -24,9 +23,7 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
     if (onLogoTap != null) {
       onLogoTap!();
     } else {
-      // Switch active tab in MainShell to 0 (Home Dashboard)
       MainShell.navigateToTab(0);
-      // If we are currently inside a pushed route (e.g. AI Assistant or Add Expense), pop back
       if (Navigator.canPop(context)) {
         Navigator.popUntil(context, (route) => route.isFirst);
       }
@@ -37,7 +34,7 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
     if (onProfileTap != null) {
       onProfileTap!();
     } else {
-      MainShell.navigateToTab(4); // Switch to Profile tab
+      MainShell.navigateToTab(4);
       if (Navigator.canPop(context)) {
         Navigator.popUntil(context, (route) => route.isFirst);
       }
@@ -49,55 +46,64 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: AppColors.background,
       elevation: 0,
-      title: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => _handleLogoTap(context),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Logo "F." in black box
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Center(
-                  child: Text(
-                    'F.',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
+      titleSpacing: 12.0,
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => _handleLogoTap(context),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'F.',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'FinTrack',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
+                const SizedBox(width: 8),
+                const Text(
+                  'FinTrack',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary, size: 24),
+          constraints: const BoxConstraints(maxWidth: 40),
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary, size: 22),
           onPressed: onSearchTap ?? () {},
         ),
         Stack(
+          alignment: Alignment.center,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 24),
+              constraints: const BoxConstraints(maxWidth: 40),
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 22),
               onPressed: onNotificationTap ?? () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('No new unread notifications')),
@@ -105,11 +111,11 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
               },
             ),
             Positioned(
-              right: 12,
+              right: 8,
               top: 12,
               child: Container(
-                width: 8,
-                height: 8,
+                width: 7,
+                height: 7,
                 decoration: const BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
@@ -119,13 +125,13 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
           ],
         ),
         Padding(
-          padding: const EdgeInsets.only(right: 16.0, left: 4.0),
+          padding: const EdgeInsets.only(right: 12.0, left: 4.0),
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () => _handleProfileTap(context),
               child: CircleAvatar(
-                radius: 17,
+                radius: 15,
                 backgroundColor: AppColors.border,
                 backgroundImage: const NetworkImage(
                   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',

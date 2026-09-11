@@ -6,6 +6,7 @@ class AppRoutes {
   static const String kycLite = '/onboarding/kyc-lite';
   static const String employerLink = '/onboarding/employer-link';
   static const String consent = '/onboarding/consent';
+  static const String financialSetup = '/onboarding/financial-setup';
   
   static const String mainShell = '/main';
   static const String dashboard = '/dashboard';
