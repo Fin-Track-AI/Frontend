@@ -6,9 +6,9 @@ import '../transaction/add_transaction_modal.dart';
 import '../../routes/app_routes.dart';
 import '../reimbursement/claim_form_screen.dart';
 import '../reimbursement/my_claims_screen.dart';
-import '../onboarding/financial_setup_screen.dart';
 import '../../services/user_financial_service.dart';
 import '../../services/session_service.dart';
+import '../main_shell.dart';
 
 class ExpenseDashboardScreen extends StatefulWidget {
   const ExpenseDashboardScreen({super.key});
@@ -35,16 +35,6 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushNamed(context, AppRoutes.financialSetup);
       });
-    }
-  }
-
-  Future<void> _openEditSetup() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const FinancialSetupScreen(isModalEdit: true)),
-    );
-    if (result == true && mounted) {
-      setState(() {});
     }
   }
 
@@ -82,39 +72,23 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             children: [
               // Greeting and Date
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Live Tracker • September',
-                        style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Good morning,\n${_financialService.userName.split(' ').first}',
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          height: 1.15,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Live Tracker • September',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w600),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: _openEditSetup,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 1.2),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Good morning,\n${_financialService.userName.split(' ').first}',
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                      letterSpacing: -0.5,
                     ),
-                    icon: const Icon(Icons.tune_rounded, size: 16, color: AppColors.primary),
-                    label: const Text('Edit Salary', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -317,10 +291,10 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
                     ),
                   ),
                   _buildQuickActionButton(
-                    icon: Icons.tune_rounded,
-                    label: 'Setup\nSalary',
+                    icon: Icons.incomplete_circle_rounded,
+                    label: 'Split\nBill',
                     isAccent: true,
-                    onTap: _openEditSetup,
+                    onTap: () => MainShell.navigateToTab(3),
                   ),
                 ],
               ),
