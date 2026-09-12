@@ -111,13 +111,13 @@ class WelcomeScreen extends StatelessWidget {
                 height: 52,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamed(context, AppRoutes.phoneOtp);
+                    Navigator.pushNamed(context, AppRoutes.login);
                   },
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Get Started with Mobile Number',
+                        'Get Started with Email',
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                       SizedBox(width: 8),

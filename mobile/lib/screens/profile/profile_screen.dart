@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
+import '../../services/session_service.dart';
 import '../../services/user_financial_service.dart';
 import '../onboarding/financial_setup_screen.dart';
 import '../../widgets/fintrack_header.dart';
@@ -39,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleLogout() async {
     await _authService.logout();
+    await UserFinancialService().init();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Logged out successfully.')),
@@ -48,10 +51,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateBackendConsent(String type, bool val) async {
     try {
+      final token = SessionService().token ?? '';
       await http.post(
-        Uri.parse('http://localhost:5001/api/v1/consent'),
+        Uri.parse('${ApiConfig.baseUrl}/consent'),
         headers: {
-          'Authorization': 'Bearer mock_token_123',
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -112,7 +116,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Phone: +91 ${_savedUser?['phone'] ?? '9876543210'}',
+                          _savedUser?['phone'] != null && (_savedUser!['phone'] as String).isNotEmpty
+                              ? 'Phone: +91 ${_savedUser!['phone']}'
+                              : 'Phone: Not Linked',
                           style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                         Text(

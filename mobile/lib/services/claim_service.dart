@@ -1,10 +1,11 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../core/config/api_config.dart';
 
 class ClaimService {
   final String baseUrl;
 
-  ClaimService({this.baseUrl = 'http://localhost:5001/api/v1'});
+  ClaimService({String? baseUrl}) : baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
   /// Submit a new reimbursement claim
   Future<Map<String, dynamic>> submitClaim({

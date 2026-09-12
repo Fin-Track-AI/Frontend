@@ -16,11 +16,22 @@ import 'screens/onboarding/kyc_lite_screen.dart';
 import 'screens/onboarding/employer_link_screen.dart';
 import 'screens/onboarding/consent_screen.dart';
 import 'screens/onboarding/financial_setup_screen.dart';
+import 'services/session_service.dart';
 import 'services/user_financial_service.dart';
+import 'core/config/api_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Resolve backend API URL (Primary Cloud Run with Localhost fallback)
+  await ApiConfig.getActiveBaseUrl();
+
+  // Restore persisted session (JWT + user) before any screen renders
+  await SessionService().init();
+
+  // Restore local financial data (salary, expenses stored on device)
   await UserFinancialService().init();
+
   runApp(const FinTrackApp());
 }
 
@@ -29,11 +40,14 @@ class FinTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Decide initial route based on session state
+    final bool isLoggedIn = SessionService().isLoggedIn;
+
     return MaterialApp(
       title: 'FinTrack',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.mainShell,
+      initialRoute: AppRoutes.splash,
       routes: {
         AppRoutes.splash: (context) => const SplashScreen(),
         AppRoutes.login: (context) => const LoginScreen(),

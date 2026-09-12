@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../screens/main_shell.dart';
+import '../services/session_service.dart';
 
 class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearchTap;
@@ -46,6 +47,7 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: AppColors.background,
       elevation: 0,
+      automaticallyImplyLeading: false,
       titleSpacing: 12.0,
       title: FittedBox(
         fit: BoxFit.scaleDown,
@@ -130,12 +132,33 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () => _handleProfileTap(context),
-              child: CircleAvatar(
-                radius: 15,
-                backgroundColor: AppColors.border,
-                backgroundImage: const NetworkImage(
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                ),
+              child: Builder(
+                builder: (context) {
+                  final avatarUrl = SessionService().avatarUrl;
+                  final name = SessionService().userName;
+                  final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+
+                  if (avatarUrl.isNotEmpty) {
+                    return CircleAvatar(
+                      radius: 15,
+                      backgroundColor: AppColors.primaryLight,
+                      backgroundImage: NetworkImage(avatarUrl),
+                    );
+                  }
+
+                  return CircleAvatar(
+                    radius: 15,
+                    backgroundColor: AppColors.primary,
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),

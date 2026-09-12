@@ -1,11 +1,12 @@
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../core/config/api_config.dart';
 
 class OcrService {
   final String baseUrl;
 
-  OcrService({this.baseUrl = 'http://localhost:5001/api/v1'});
+  OcrService({String? baseUrl}) : baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
   /// Send receipt image to OCR auto-extraction service (supports Web bytes & File path)
   Future<Map<String, dynamic>> parseReceiptImage({

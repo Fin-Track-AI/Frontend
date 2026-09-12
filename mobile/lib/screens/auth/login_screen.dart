@@ -11,35 +11,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _phoneController = TextEditingController(text: '9876543210');
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
   final AuthService _authService = AuthService();
   
   bool _otpSent = false;
   bool _isLoading = false;
+  String? _devOtp;
 
-  void _handleSendOtp() {
-    if (_phoneController.text.trim().length < 10) {
+  Future<void> _handleSendOtp() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid 10-digit mobile number')),
-      );
-      return;
-    }
-    setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _otpSent = true;
-      });
-    });
-  }
-
-  Future<void> _handleLogin() async {
-    final phone = _phoneController.text.trim();
-    if (phone.length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid 10-digit mobile number')),
+        const SnackBar(content: Text('Please enter a valid email address')),
       );
       return;
     }
@@ -47,14 +33,74 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final res = await _authService.loginWithPhone(phone: phone);
+      final res = await _authService.sendEmailOtp(email: email);
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _otpSent = true;
+        _devOtp = res['devOtp'] as String?;
+      });
+
+      final deliveredToInbox = res['deliveredToInbox'] == true;
+
+      // If devOtp is present and not delivered to inbox, fill it for quick testing
+      if (_devOtp != null && !deliveredToInbox) {
+        _otpController.text = _devOtp!;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(deliveredToInbox
+              ? 'Verification code delivered to your inbox at $email!'
+              : (_devOtp != null
+                  ? 'Verification code generated! (Dev Code: $_devOtp)'
+                  : 'Verification code sent to $email')),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleVerifyAndLogin() async {
+    final email = _emailController.text.trim();
+    final otp = _otpController.text.trim();
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (otp.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the 6-digit OTP sent to your email')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await _authService.verifyEmailOtp(
+        email: email,
+        otp: otp,
+        name: name.isNotEmpty ? name : null,
+        phone: phone.isNotEmpty ? phone : null,
+      );
 
       if (!mounted) return;
 
       final userName = res['user']?['name'] ?? 'User';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Logged in successfully as $userName! Session saved.'),
+          content: Text('Welcome back, $userName!'),
           backgroundColor: AppColors.green,
         ),
       );
@@ -63,7 +109,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login error: ${e.toString()}'), backgroundColor: AppColors.red),
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -118,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Title & Subtitle
               Text(
-                _otpSent ? 'Enter 4-Digit OTP' : 'Welcome to FinTrack',
+                _otpSent ? 'Enter Email OTP' : 'Sign in with Email',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 28,
@@ -129,8 +178,8 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
               Text(
                 _otpSent
-                    ? 'Enter the 4-digit code sent to +91 ${_phoneController.text}'
-                    : 'Sign in to access your spend analytics, corporate claims, split ledgers, and AI financial assistant.',
+                    ? 'Enter the 6-digit code sent to ${_emailController.text}'
+                    : 'Enter your email to sign in or create a fresh account. We will send a one-time verification code.',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
@@ -140,9 +189,60 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 28),
 
               if (!_otpSent) ...[
-                // Mobile Input Field
+                // Name Input Field (Optional for new users)
                 const Text(
-                  'REGISTERED MOBILE NUMBER',
+                  'YOUR FULL NAME (OPTIONAL)',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _nameController,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. Ritesh Jadhav',
+                    prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Email Input Field
+                const Text(
+                  'WORK OR PERSONAL EMAIL',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'you@company.com or you@gmail.com',
+                    prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Mobile Number Input Field (User defined)
+                const Text(
+                  'MOBILE NUMBER (USER DEFINED)',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11,
@@ -154,26 +254,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  maxLength: 10,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                   decoration: const InputDecoration(
-                    prefixText: '+91  ',
+                    hintText: 'e.g. 9820012345',
+                    prefixIcon: Icon(Icons.phone_iphone_rounded, color: AppColors.textMuted),
+                    prefixText: '+91 ',
                     prefixStyle: TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.bold,
                     ),
-                    hintText: '98765 43210',
-                    counterText: '',
-                    prefixIcon: Icon(Icons.phone_android_rounded, color: AppColors.textMuted),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Submit Button
                 SizedBox(
@@ -186,64 +282,38 @@ class _LoginScreenState extends State<LoginScreen> {
                         : const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('Send Login OTP', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                              Text('Send Verification Code', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                               SizedBox(width: 8),
                               Icon(Icons.arrow_forward_rounded, size: 18),
                             ],
                           ),
                   ),
                 ),
-                const SizedBox(height: 24),
-
-                // Divider
-                Row(
-                  children: const [
-                    Expanded(child: Divider(color: AppColors.border)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('OR CONTINUE WITH', style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w700)),
-                    ),
-                    Expanded(child: Divider(color: AppColors.border)),
-                  ],
-                ),
-                const SizedBox(height: 18),
-
-                // Social SSO Buttons
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: AppColors.surface,
-                  ),
-                  icon: const Icon(Icons.g_mobiledata_rounded, size: 26, color: Color(0xFFEA4335)),
-                  label: const Text('Continue with Google Workspace', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
-                  onPressed: _handleLogin,
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: AppColors.surface,
-                  ),
-                  icon: const Icon(Icons.domain_rounded, size: 20, color: AppColors.blue),
-                  label: const Text('Corporate SSO Login (Workday / Okta)', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
-                  onPressed: _handleLogin,
-                ),
-                const SizedBox(height: 24),
-
-                // New User link
-                Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("New to FinTrack? ", style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                      GestureDetector(
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.welcome),
-                        child: const Text('Create an Account', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ),
-                ),
               ] else ...[
+                if (_devOtp != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.developer_mode, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Development Code: $_devOtp (Auto-filled)',
+                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // OTP Input State
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -257,16 +327,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         controller: _otpController,
                         keyboardType: TextInputType.number,
-                        maxLength: 4,
+                        maxLength: 6,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: AppColors.primary,
-                          fontSize: 30,
+                          fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 20,
+                          letterSpacing: 10,
                         ),
                         decoration: const InputDecoration(
-                          hintText: '• • • •',
+                          hintText: '• • • • • •',
                           counterText: '',
                           fillColor: AppColors.surfaceMuted,
                         ),
@@ -277,11 +347,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           TextButton(
                             onPressed: () => setState(() => _otpSent = false),
-                            child: const Text('Change Number', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                            child: const Text('Change Email', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                           ),
                           TextButton(
                             onPressed: _handleSendOtp,
-                            child: const Text('Resend Code (30s)', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w700)),
+                            child: const Text('Resend Code', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w700)),
                           ),
                         ],
                       ),
@@ -295,7 +365,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
+                    onPressed: _isLoading ? null : _handleVerifyAndLogin,
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Verify & Enter Dashboard', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
@@ -318,7 +388,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '100% Read-Only & DPDP Act Compliant. FinTrack never stores banking passwords or initiates debit payments.',
+                        'DPDP Act & RBI AA Compliant. Accounts and ledgers are completely isolated per authenticated user.',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.35),
                       ),
                     ),

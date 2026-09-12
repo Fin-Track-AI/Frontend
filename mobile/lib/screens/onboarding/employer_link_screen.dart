@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
+import '../../services/session_service.dart';
 
 class EmployerLinkScreen extends StatefulWidget {
   const EmployerLinkScreen({super.key});
@@ -29,10 +31,11 @@ class _EmployerLinkScreenState extends State<EmployerLinkScreen> {
   Future<void> _proceed() async {
     setState(() => _isLoading = true);
     try {
+      final token = SessionService().token ?? '';
       final response = await http.post(
-        Uri.parse('http://localhost:5001/api/v1/employer/link'),
+        Uri.parse('${ApiConfig.baseUrl}/employer/link'),
         headers: {
-          'Authorization': 'Bearer mock_token_123',
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({

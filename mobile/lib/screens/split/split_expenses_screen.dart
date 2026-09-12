@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/fintrack_header.dart';
 import '../../widgets/ask_ai_pill.dart';
+import '../../services/session_service.dart';
 import '../transaction/add_transaction_modal.dart';
 
 class SplitExpensesScreen extends StatefulWidget {
@@ -20,10 +21,14 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
     {'title': 'Office Lunch', 'icon': '🍱', 'members': 4, 'spend': '₹3,200'},
   ];
 
-  final List<Map<String, String>> _friends = [
-    {'name': 'Ritesh', 'tag': 'YOU', 'img': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'},
+  List<Map<String, String>> get _friends => [
+    {
+      'name': SessionService().userName.split(' ').first,
+      'tag': 'YOU',
+      'img': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    },
     {'name': 'Ameya', 'tag': '', 'img': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80'},
-    {'name': 'Atharva', 'tag': '', 'img': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80'},
+    {'name': 'Aarav', 'tag': '', 'img': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80'},
     {'name': 'Sneha', 'tag': '', 'img': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80'},
     {'name': 'Rohan', 'tag': '', 'img': 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80'},
   ];

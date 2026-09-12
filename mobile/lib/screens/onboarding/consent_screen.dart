@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
+import '../../services/session_service.dart';
 
 class ConsentScreen extends StatefulWidget {
   const ConsentScreen({super.key});
@@ -20,10 +22,11 @@ class _ConsentScreenState extends State<ConsentScreen> {
   Future<void> _completeOnboarding() async {
     setState(() => _isLoading = true);
     try {
+      final token = SessionService().token ?? '';
       final response = await http.post(
-        Uri.parse('http://localhost:5001/api/v1/consent'),
+        Uri.parse('${ApiConfig.baseUrl}/consent'),
         headers: {
-          'Authorization': 'Bearer mock_token_123',
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
