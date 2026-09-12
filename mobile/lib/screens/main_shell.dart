@@ -4,7 +4,6 @@ import 'dashboard/expense_dashboard_screen.dart';
 import 'expenses/expenses_list_screen.dart';
 import 'reimbursement/reimbursement_screen.dart';
 import 'split/split_expenses_screen.dart';
-import 'profile/profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -25,7 +24,6 @@ class _MainShellState extends State<MainShell> {
     ExpensesListScreen(),     // 1: Expenses (Page 7)
     ReimbursementScreen(),    // 2: Claims (Page 2)
     SplitExpensesScreen(),    // 3: Split (Page 1)
-    ProfileScreen(),          // 4: Profile (Page 6)
   ];
 
   @override
@@ -33,9 +31,12 @@ class _MainShellState extends State<MainShell> {
     return ValueListenableBuilder<int>(
       valueListenable: MainShell.activeTabNotifier,
       builder: (context, currentIndex, _) {
+        // Clamp index to available tabs to prevent out-of-range errors
+        final safeIndex = currentIndex.clamp(0, _screens.length - 1);
+
         return Scaffold(
           body: IndexedStack(
-            index: currentIndex,
+            index: safeIndex,
             children: _screens,
           ),
           bottomNavigationBar: Container(
@@ -46,7 +47,7 @@ class _MainShellState extends State<MainShell> {
               ),
             ),
             child: BottomNavigationBar(
-              currentIndex: currentIndex,
+              currentIndex: safeIndex,
               backgroundColor: AppColors.surface,
               selectedItemColor: AppColors.primary,
               unselectedItemColor: AppColors.textMuted,
@@ -76,11 +77,6 @@ class _MainShellState extends State<MainShell> {
                   icon: Icon(Icons.incomplete_circle_outlined, size: 22),
                   activeIcon: Icon(Icons.incomplete_circle_rounded, size: 22),
                   label: 'Split',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline_rounded, size: 22),
-                  activeIcon: Icon(Icons.person_rounded, size: 22),
-                  label: 'Profile',
                 ),
               ],
             ),
