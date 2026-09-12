@@ -14,8 +14,14 @@ class ApiConfig {
   /// Getter for the active base URL
   static String get baseUrl => _activeBaseUrl;
 
-  /// Quick check if primary is reachable; falls back to localhost if primary fails
+  /// Quick check if primary is reachable; only falls back to localhost in debug mode
   static Future<String> getActiveBaseUrl() async {
+    // In release APKs on real phones, always use Cloud Run (localhost does not exist on physical phones)
+    if (kReleaseMode) {
+      _activeBaseUrl = primaryBaseUrl;
+      return _activeBaseUrl;
+    }
+
     try {
       final res = await http
           .get(Uri.parse('$primaryBaseUrl/health'))
@@ -25,7 +31,7 @@ class ApiConfig {
         return _activeBaseUrl;
       }
     } catch (e) {
-      debugPrint('[ApiConfig] Cloud Run primary backend unreachable: $e. Falling back to localhost.');
+      debugPrint('[ApiConfig] Cloud Run primary backend unreachable in debug: $e. Falling back to localhost.');
       _activeBaseUrl = localFallbackUrl;
     }
     return _activeBaseUrl;
