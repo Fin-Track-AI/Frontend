@@ -1,81 +1,125 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../core/config/api_config.dart';
+import 'session_service.dart';
+import 'user_financial_service.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:5001/api/v1/auth';
-  
-  static const String _tokenKey = 'fintrack_auth_token';
-  static const String _userKey = 'fintrack_user_data';
+  static String get baseUrl => '${ApiConfig.baseUrl}/auth';
 
+  final SessionService _session = SessionService();
+
+  /// Send email verification OTP via backend.
+  Future<Map<String, dynamic>> sendEmailOtp({required String email}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/send-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email.trim().toLowerCase()}),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) {
+      return data['data'] as Map<String, dynamic>;
+    } else {
+      throw Exception(data['message'] ?? 'Failed to send OTP. Please check your email.');
+    }
+  }
+
+  /// Verify OTP and log user in. Sets up session and user-specific financial profile.
+  Future<Map<String, dynamic>> verifyEmailOtp({
+    required String email,
+    required String otp,
+    String? name,
+    String? phone,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/verify-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim().toLowerCase(),
+        'otp': otp.trim(),
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      }),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final payload = data['data'] as Map<String, dynamic>;
+      final userData = payload['user'] as Map<String, dynamic>;
+      final token = payload['token'] as String;
+
+      // Save user session
+      await _session.saveSession(token: token, user: userData);
+
+      // Initialize financial service for this specific user
+      final financialService = UserFinancialService();
+      await financialService.init();
+
+      // If backend has user financial data, sync it
+      final salary = (userData['salary'] as num?)?.toDouble() ?? 0.0;
+      if (salary > 0 && !financialService.isSetupComplete) {
+        await financialService.saveFinancialSetup(
+          name: userData['name'] as String? ?? 'User',
+          salary: salary,
+          rentVal: (userData['rent'] as num?)?.toDouble() ?? 0.0,
+          billsVal: (userData['bills'] as num?)?.toDouble() ?? 0.0,
+          emiVal: (userData['emi'] as num?)?.toDouble() ?? 0.0,
+        );
+      }
+
+      return payload;
+    } else {
+      throw Exception(data['message'] ?? 'Verification failed. Please check the code.');
+    }
+  }
+
+  /// Fallback login with phone/dummy for compatibility
   Future<Map<String, dynamic>> loginWithPhone({
     required String phone,
     String? name,
     String? email,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phone': phone,
-          'name': name ?? 'User $phone',
-          'email': email ?? '$phone@fintrack.app',
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final userData = data['data']['user'];
-        final token = data['data']['token'];
-
-        // Persist session locally
-        await saveSession(token: token, user: userData);
-
-        return data['data'];
-      } else {
-        throw Exception(data['message'] ?? 'Login failed');
-      }
-    } catch (e) {
-      // Fallback local save if network is unreachable
-      final fallbackUser = {
-        'id': 'user_$phone',
+    final response = await http.post(
+      Uri.parse('$baseUrl/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'phone': phone,
-        'name': name ?? 'FinTrack User',
+        'name': name ?? 'User $phone',
         'email': email ?? '$phone@fintrack.app',
-      };
-      const fallbackToken = 'mock_jwt_token_local';
-      await saveSession(token: fallbackToken, user: fallbackUser);
-      return {'user': fallbackUser, 'token': fallbackToken};
+      }),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final userData = data['data']['user'] as Map<String, dynamic>;
+      final token = data['data']['token'] as String;
+      await _session.saveSession(token: token, user: userData);
+      await UserFinancialService().init();
+      return data['data'] as Map<String, dynamic>;
+    } else {
+      throw Exception(data['message'] ?? 'Login failed.');
     }
   }
 
-  Future<void> saveSession({required String token, required Map<String, dynamic> user}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
-    await prefs.setString(_userKey, jsonEncode(user));
-  }
+  /// Delegate to SessionService for backward compatibility.
+  Future<void> saveSession({
+    required String token,
+    required Map<String, dynamic> user,
+  }) =>
+      _session.saveSession(token: token, user: user);
 
-  Future<Map<String, dynamic>?> getSavedUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userStr = prefs.getString(_userKey);
-    if (userStr == null || userStr.isEmpty) return null;
-    try {
-      return jsonDecode(userStr) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
+  /// Returns the saved user object from memory (via SessionService).
+  Future<Map<String, dynamic>?> getSavedUser() async => _session.user;
 
-  Future<String?> getSavedToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
-  }
+  /// Returns the saved JWT token from memory (via SessionService).
+  Future<String?> getSavedToken() async => _session.token;
 
+  /// Clear session, reset financial service, and logout.
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userKey);
+    await _session.clearSession();
+    await UserFinancialService().init(); // re-inits into unauthenticated fresh state
   }
 }

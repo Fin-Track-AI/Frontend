@@ -1,11 +1,12 @@
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../core/config/api_config.dart';
 
 class BillUploadService {
   final String baseUrl;
 
-  BillUploadService({this.baseUrl = 'http://localhost:5001/api/v1'});
+  BillUploadService({String? baseUrl}) : baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
   /// Upload a bill image file (supports Web bytes and File path)
   Future<Map<String, dynamic>> uploadBillPhoto({

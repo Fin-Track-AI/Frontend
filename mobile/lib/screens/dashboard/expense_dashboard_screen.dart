@@ -8,6 +8,7 @@ import '../reimbursement/claim_form_screen.dart';
 import '../reimbursement/my_claims_screen.dart';
 import '../onboarding/financial_setup_screen.dart';
 import '../../services/user_financial_service.dart';
+import '../../services/session_service.dart';
 
 class ExpenseDashboardScreen extends StatefulWidget {
   const ExpenseDashboardScreen({super.key});
@@ -67,6 +68,7 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
       backgroundColor: AppColors.background,
       appBar: const FinTrackHeader(),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_dashboard_expense',
         onPressed: _openAddExpenseModal,
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add, color: Colors.white),
@@ -295,7 +297,11 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
                     label: 'Submit\nClaim',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const ClaimFormScreen(authToken: 'mock_token_123')),
+                      MaterialPageRoute(
+                        builder: (context) => ClaimFormScreen(
+                          authToken: SessionService().token ?? '',
+                        ),
+                      ),
                     ),
                   ),
                   _buildQuickActionButton(
@@ -303,7 +309,11 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
                     label: 'My\nClaims',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const MyClaimsScreen(authToken: 'mock_token_123')),
+                      MaterialPageRoute(
+                        builder: (context) => MyClaimsScreen(
+                          authToken: SessionService().token ?? '',
+                        ),
+                      ),
                     ),
                   ),
                   _buildQuickActionButton(

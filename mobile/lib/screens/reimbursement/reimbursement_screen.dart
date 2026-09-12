@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/fintrack_header.dart';
+import '../../services/session_service.dart';
+import '../../services/claim_service.dart';
 import 'claim_form_screen.dart';
 import 'my_claims_screen.dart';
 
@@ -12,20 +14,76 @@ class ReimbursementScreen extends StatefulWidget {
 }
 
 class _ReimbursementScreenState extends State<ReimbursementScreen> {
-  static const String _authToken = 'mock_token_123';
+  // Real JWT from SessionService singleton — no hardcoded tokens
+  String get _authToken => SessionService().token ?? '';
+
+  bool _isLoading = true;
+  List<dynamic> _claims = [];
+  Map<String, double> _metrics = {
+    'pending': 0,
+    'inReview': 0,
+    'approved': 0,
+    'rejected': 0,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClaims();
+  }
+
+  Future<void> _loadClaims() async {
+    if (_authToken.isEmpty) return;
+    try {
+      final claims = await ClaimService().getMyClaims(authToken: _authToken);
+      double pending = 0, inReview = 0, approved = 0, rejected = 0;
+      for (final c in claims) {
+        final amt = (c['amount'] as num?)?.toDouble() ?? 0;
+        switch (c['status']) {
+          case 'Submitted':
+            pending += amt;
+            break;
+          case 'In Review':
+            inReview += amt;
+            break;
+          case 'Approved':
+          case 'Reimbursed':
+            approved += amt;
+            break;
+          case 'Rejected':
+            rejected += amt;
+            break;
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _claims = claims;
+          _metrics = {
+            'pending': pending,
+            'inReview': inReview,
+            'approved': approved,
+            'rejected': rejected,
+          };
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   void _openClaimForm() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ClaimFormScreen(authToken: _authToken)),
-    );
+      MaterialPageRoute(builder: (context) => ClaimFormScreen(authToken: _authToken)),
+    ).then((_) => _loadClaims());
   }
 
   void _openMyClaims() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const MyClaimsScreen(authToken: _authToken)),
-    );
+      MaterialPageRoute(builder: (context) => MyClaimsScreen(authToken: _authToken)),
+    ).then((_) => _loadClaims());
   }
 
   @override
@@ -34,6 +92,7 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
       backgroundColor: AppColors.background,
       appBar: const FinTrackHeader(),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_reimbursement_claim',
         onPressed: _openClaimForm,
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add_a_photo, color: Colors.black),
@@ -115,7 +174,7 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                     onTap: _openMyClaims,
                     child: _buildMetricCard(
                       title: 'Pending Claim',
-                      amount: '₹4,820',
+                      amount: '₹${(_metrics['pending'] ?? 0).toStringAsFixed(0)}',
                       subtitle: 'Tap to view claims',
                       icon: Icons.access_time_rounded,
                     ),
@@ -127,8 +186,8 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                     onTap: _openMyClaims,
                     child: _buildMetricCard(
                       title: 'In Review',
-                      amount: '₹2,450',
-                      subtitle: '1 claim under audit',
+                      amount: '₹${(_metrics['inReview'] ?? 0).toStringAsFixed(0)}',
+                      subtitle: 'Claims under audit',
                       icon: Icons.fact_check_outlined,
                     ),
                   ),
@@ -141,8 +200,8 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                 Expanded(
                   child: _buildMetricCard(
                     title: 'Approved',
-                    amount: '₹8,150',
-                    subtitle: 'Disbursing in Sep payroll',
+                    amount: '₹${(_metrics['approved'] ?? 0).toStringAsFixed(0)}',
+                    subtitle: 'Approved for payout',
                     icon: Icons.verified_outlined,
                     iconColor: AppColors.green,
                   ),
@@ -151,10 +210,10 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                 Expanded(
                   child: _buildMetricCard(
                     title: 'Rejected',
-                    amount: '₹0',
-                    subtitle: '100% approval rate',
+                    amount: '₹${(_metrics['rejected'] ?? 0).toStringAsFixed(0)}',
+                    subtitle: 'Rejected claims',
                     icon: Icons.check_circle_outline,
-                    iconColor: AppColors.green,
+                    iconColor: (_metrics['rejected'] ?? 0) > 0 ? AppColors.red : AppColors.green,
                   ),
                 ),
               ],
@@ -228,7 +287,10 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(6)),
-                      child: const Text('2 Active', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        '${_claims.length} Active',
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -240,34 +302,63 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Claim 1: Taj Hotels & Resorts
-            _buildActiveClaimCard(
-              icon: Icons.restaurant_rounded,
-              merchant: 'Taj Hotels &\nResorts',
-              sub: 'Client Dinner • Business\nTravel',
-              claimId: '#FT-9821',
-              amount: '₹2,450.00',
-              gst: 'GST ₹373.00',
-              tags: 'Project Alpha • Engineering',
-              date: '04 Sep 2026',
-              hasAuditProgress: true,
-            ),
-            const SizedBox(height: 12),
+            if (_claims.isEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.textMuted),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'No Reimbursement Claims Yet',
+                      style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Scan a corporate bill or receipt to submit your first claim.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _openClaimForm,
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                      icon: const Icon(Icons.camera_alt, color: Colors.black, size: 16),
+                      label: const Text('Scan Receipt', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              ..._claims.map((c) {
+                final merchant = (c['merchantName'] ?? c['category'] ?? 'Corporate Expense').toString();
+                final category = (c['category'] ?? 'General').toString();
+                final claimId = '#CLM-${c['id'] ?? (c['_id'] != null ? c['_id'].toString().substring(0, 6) : '0000')}';
+                final amount = '₹${(c['amount'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00'}';
+                final status = (c['status'] ?? 'Submitted').toString();
 
-            // Claim 2: Uber India
-            _buildActiveClaimCard(
-              icon: Icons.directions_car_rounded,
-              merchant: 'Uber India',
-              sub: 'Travel • Airport Ride',
-              claimId: '#FT-9740',
-              amount: '₹680.00',
-              gst: 'GST ₹34.00',
-              tags: 'Client Onsite Visit',
-              date: '01 Sep 2026',
-              hasAuditProgress: false,
-              approvalNote: 'Approved by VP of Finance',
-              payoutNote: 'Added to Sept Salary Payout',
-            ),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildActiveClaimCard(
+                    icon: Icons.receipt_rounded,
+                    merchant: merchant,
+                    sub: '$category • Status: $status',
+                    claimId: claimId,
+                    amount: amount,
+                    gst: 'Audit Checked',
+                    tags: 'Status: $status',
+                    date: 'Live Claim',
+                    hasAuditProgress: status == 'In Review' || status == 'Submitted',
+                    approvalNote: status == 'Approved' ? 'Approved by Finance' : null,
+                  ),
+                );
+              }),
+            ],
             const SizedBox(height: 24),
           ],
         ),

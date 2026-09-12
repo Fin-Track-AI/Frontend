@@ -1,25 +1,28 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/config/api_config.dart';
+import 'session_service.dart';
 
 class UserFinancialService {
   static final UserFinancialService _instance = UserFinancialService._internal();
   factory UserFinancialService() => _instance;
   UserFinancialService._internal();
 
-  static const String _keySetupComplete = 'fintrack_setup_complete';
-  static const String _keyUserName = 'fintrack_user_name';
-  static const String _keyMonthlySalary = 'fintrack_monthly_salary';
-  static const String _keyRent = 'fintrack_rent';
-  static const String _keyBills = 'fintrack_bills';
-  static const String _keyEmi = 'fintrack_emi';
-  static const String _keyTransactions = 'fintrack_user_transactions';
+  String _userKey(String key) {
+    final uid = SessionService().userId;
+    if (uid.isNotEmpty) {
+      return 'fintrack_${uid}_$key';
+    }
+    return 'fintrack_guest_$key';
+  }
 
   bool isSetupComplete = false;
-  String userName = 'Atharva';
-  double monthlySalary = 50000.0;
-  double rent = 15000.0;
-  double bills = 3000.0;
-  double emi = 2000.0;
+  String userName = '';
+  double monthlySalary = 0.0;
+  double rent = 0.0;
+  double bills = 0.0;
+  double emi = 0.0;
 
   List<Map<String, dynamic>> userTransactions = [];
 
@@ -44,14 +47,16 @@ class UserFinancialService {
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    isSetupComplete = prefs.getBool(_keySetupComplete) ?? false;
-    userName = prefs.getString(_keyUserName) ?? 'Atharva';
-    monthlySalary = prefs.getDouble(_keyMonthlySalary) ?? 50000.0;
-    rent = prefs.getDouble(_keyRent) ?? 15000.0;
-    bills = prefs.getDouble(_keyBills) ?? 3000.0;
-    emi = prefs.getDouble(_keyEmi) ?? 2000.0;
+    final defaultName = SessionService().userName;
 
-    final txStr = prefs.getString(_keyTransactions);
+    isSetupComplete = prefs.getBool(_userKey('setup_complete')) ?? false;
+    userName = prefs.getString(_userKey('user_name')) ?? defaultName;
+    monthlySalary = prefs.getDouble(_userKey('monthly_salary')) ?? 0.0;
+    rent = prefs.getDouble(_userKey('rent')) ?? 0.0;
+    bills = prefs.getDouble(_userKey('bills')) ?? 0.0;
+    emi = prefs.getDouble(_userKey('emi')) ?? 0.0;
+
+    final txStr = prefs.getString(_userKey('transactions'));
     if (txStr != null && txStr.isNotEmpty) {
       try {
         final List decoded = jsonDecode(txStr);
@@ -79,12 +84,36 @@ class UserFinancialService {
     emi = emiVal;
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keySetupComplete, true);
-    await prefs.setString(_keyUserName, name);
-    await prefs.setDouble(_keyMonthlySalary, salary);
-    await prefs.setDouble(_keyRent, rentVal);
-    await prefs.setDouble(_keyBills, billsVal);
-    await prefs.setDouble(_keyEmi, emiVal);
+    await prefs.setBool(_userKey('setup_complete'), true);
+    await prefs.setString(_userKey('user_name'), name);
+    await prefs.setDouble(_userKey('monthly_salary'), salary);
+    await prefs.setDouble(_userKey('rent'), rentVal);
+    await prefs.setDouble(_userKey('bills'), billsVal);
+    await prefs.setDouble(_userKey('emi'), emiVal);
+
+    // Also update session user name
+    await SessionService().updateUser({'name': name, 'salary': salary});
+
+    // Sync to backend if token available
+    final token = SessionService().token;
+    if (token != null && token.isNotEmpty) {
+      try {
+        await http.put(
+          Uri.parse('${ApiConfig.baseUrl}/auth/profile'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'name': name,
+            'salary': salary,
+            'rent': rentVal,
+            'bills': billsVal,
+            'emi': emiVal,
+          }),
+        );
+      } catch (_) {}
+    }
   }
 
   Future<void> addTransaction({
@@ -107,12 +136,12 @@ class UserFinancialService {
     userTransactions.insert(0, tx);
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyTransactions, jsonEncode(userTransactions));
+    await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
   }
 
   Future<void> resetAccountToFreshState() async {
     isSetupComplete = false;
-    userName = 'Atharva';
+    userName = SessionService().userName;
     monthlySalary = 0.0;
     rent = 0.0;
     bills = 0.0;
@@ -120,13 +149,13 @@ class UserFinancialService {
     userTransactions = [];
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keySetupComplete);
-    await prefs.remove(_keyUserName);
-    await prefs.remove(_keyMonthlySalary);
-    await prefs.remove(_keyRent);
-    await prefs.remove(_keyBills);
-    await prefs.remove(_keyEmi);
-    await prefs.remove(_keyTransactions);
+    await prefs.remove(_userKey('setup_complete'));
+    await prefs.remove(_userKey('user_name'));
+    await prefs.remove(_userKey('monthly_salary'));
+    await prefs.remove(_userKey('rent'));
+    await prefs.remove(_userKey('bills'));
+    await prefs.remove(_userKey('emi'));
+    await prefs.remove(_userKey('transactions'));
   }
 
   String _formatTime(DateTime dt) {
