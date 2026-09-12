@@ -20,7 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   
   bool _otpSent = false;
   bool _isLoading = false;
-  String? _devOtp;
 
   Future<void> _handleSendOtp() async {
     final email = _emailController.text.trim();
@@ -34,29 +33,17 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final res = await _authService.sendEmailOtp(email: email);
+      await _authService.sendEmailOtp(email: email);
       if (!mounted) return;
 
       setState(() {
         _isLoading = false;
         _otpSent = true;
-        _devOtp = res['devOtp'] as String?;
       });
-
-      final deliveredToInbox = res['deliveredToInbox'] == true;
-
-      // If devOtp is present and not delivered to inbox, fill it for quick testing
-      if (_devOtp != null && !deliveredToInbox) {
-        _otpController.text = _devOtp!;
-      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(deliveredToInbox
-              ? 'Verification code delivered to your inbox at $email!'
-              : (_devOtp != null
-                  ? 'Verification code generated! (Dev Code: $_devOtp)'
-                  : 'Verification code sent to $email')),
+          content: Text('Verification code sent to $email. Please check your inbox.'),
           backgroundColor: AppColors.primary,
           duration: const Duration(seconds: 4),
         ),
@@ -263,29 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ] else ...[
-                if (_devOtp != null) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.primary),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.developer_mode, color: AppColors.primary, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Development Code: $_devOtp (Auto-filled)',
-                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+
 
                 // OTP Input State
                 Container(
