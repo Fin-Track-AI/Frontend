@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 
@@ -24,12 +26,29 @@ class _EmployerLinkScreenState extends State<EmployerLinkScreen> {
     'Other Organization',
   ];
 
-  void _proceed() {
+  Future<void> _proceed() async {
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 500), () {
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:5001/api/v1/employer/link'),
+        headers: {
+          'Authorization': 'Bearer mock_token_123',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'employerName': _selectedEmployer,
+          'corporateEmail': _corpEmailController.text.trim(),
+        }),
+      );
+      print('Employer link API result: ${response.body}');
+    } catch (e) {
+      print('Employer link API error: $e');
+    } finally {
       setState(() => _isLoading = false);
-      Navigator.pushNamed(context, AppRoutes.consent);
-    });
+      if (mounted) {
+        Navigator.pushNamed(context, AppRoutes.consent);
+      }
+    }
   }
 
   @override

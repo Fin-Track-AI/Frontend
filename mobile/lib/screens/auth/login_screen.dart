@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
+import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +13,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController(text: '9876543210');
   final TextEditingController _otpController = TextEditingController();
+  final AuthService _authService = AuthService();
   
   bool _otpSent = false;
   bool _isLoading = false;
@@ -25,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isLoading = true);
     Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _otpSent = true;
@@ -32,12 +35,39 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
+    final phone = _phoneController.text.trim();
+    if (phone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid 10-digit mobile number')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      setState(() => _isLoading = false);
+
+    try {
+      final res = await _authService.loginWithPhone(phone: phone);
+
+      if (!mounted) return;
+
+      final userName = res['user']?['name'] ?? 'User';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Logged in successfully as $userName! Session saved.'),
+          backgroundColor: AppColors.green,
+        ),
+      );
+
       Navigator.pushNamedAndRemoveUntil(context, AppRoutes.mainShell, (route) => false);
-    });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login error: ${e.toString()}'), backgroundColor: AppColors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override

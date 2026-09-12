@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/fintrack_header.dart';
-import '../../widgets/ask_ai_pill.dart';
+import 'claim_form_screen.dart';
+import 'my_claims_screen.dart';
 
 class ReimbursementScreen extends StatefulWidget {
   const ReimbursementScreen({super.key});
@@ -11,11 +12,33 @@ class ReimbursementScreen extends StatefulWidget {
 }
 
 class _ReimbursementScreenState extends State<ReimbursementScreen> {
+  static const String _authToken = 'mock_token_123';
+
+  void _openClaimForm() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ClaimFormScreen(authToken: _authToken)),
+    );
+  }
+
+  void _openMyClaims() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MyClaimsScreen(authToken: _authToken)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const FinTrackHeader(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openClaimForm,
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add_a_photo, color: Colors.black),
+        label: const Text('Submit Claim', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -27,12 +50,12 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.blueLight,
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
                     'POLICY COMPLIANT',
-                    style: TextStyle(color: AppColors.blue, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                    style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
                   ),
                 ),
                 Row(
@@ -55,26 +78,59 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                 letterSpacing: -0.5,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
 
-            // 4 Metrics Grid (Pending Claim, In Review, Approved, Rejected)
+            // Quick Actions Bar
             Row(
               children: [
                 Expanded(
-                  child: _buildMetricCard(
-                    title: 'Pending Claim',
-                    amount: '₹4,820',
-                    subtitle: '3 receipts queued',
-                    icon: Icons.access_time_rounded,
+                  child: ElevatedButton.icon(
+                    onPressed: _openClaimForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(Icons.camera_alt, size: 18, color: Colors.black),
+                    label: const Text('Scan & Submit Claim', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: _openMyClaims,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  ),
+                  icon: const Icon(Icons.receipt_long, size: 18),
+                  label: const Text('My Claims'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // 4 Metrics Grid
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _openMyClaims,
+                    child: _buildMetricCard(
+                      title: 'Pending Claim',
+                      amount: '₹4,820',
+                      subtitle: 'Tap to view claims',
+                      icon: Icons.access_time_rounded,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _buildMetricCard(
-                    title: 'In Review',
-                    amount: '₹2,450',
-                    subtitle: '1 claim under audit',
-                    icon: Icons.fact_check_outlined,
+                  child: GestureDetector(
+                    onTap: _openMyClaims,
+                    child: _buildMetricCard(
+                      title: 'In Review',
+                      amount: '₹2,450',
+                      subtitle: '1 claim under audit',
+                      icon: Icons.fact_check_outlined,
+                    ),
                   ),
                 ),
               ],
@@ -152,13 +208,9 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                       backgroundColor: AppColors.primary,
                       minimumSize: const Size(double.infinity, 50),
                     ),
-                    icon: const Icon(Icons.camera_alt_outlined, size: 20),
-                    label: const Text('Scan New Receipt', style: TextStyle(fontWeight: FontWeight.w800)),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Opening FinTrack Camera OCR scanner...')),
-                      );
-                    },
+                    icon: const Icon(Icons.camera_alt_outlined, size: 20, color: Colors.black),
+                    label: const Text('Scan & Submit Receipt', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
+                    onPressed: _openClaimForm,
                   ),
                 ],
               ),
@@ -180,7 +232,10 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                     ),
                   ],
                 ),
-                const Text('View Ledger', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700)),
+                GestureDetector(
+                  onTap: _openMyClaims,
+                  child: const Text('View Ledger', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -214,83 +269,19 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
               payoutNote: 'Added to Sept Salary Payout',
             ),
             const SizedBox(height: 24),
-
-            // Enterprise Reporting Section
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.business_outlined, size: 20, color: AppColors.textPrimary),
-                      SizedBox(width: 8),
-                      Text('Enterprise Reporting', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Generate GST-compliant tax packets with consolidated itemized bills or sync directly with SAP, Workday, or Zoho Expense.',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.35),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 46)),
-                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                    label: const Text('Download All Expense Slips (PDF)', style: TextStyle(fontWeight: FontWeight.w700)),
-                    onPressed: () {},
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 46),
-                    ),
-                    icon: const Icon(Icons.send_rounded, size: 16),
-                    label: const Text('Submit Direct to HR Portal', style: TextStyle(fontWeight: FontWeight.w700)),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // FinTrack Policy Note
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textSecondary),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'FinTrack Policy Note: FinTrack auto-extracts and structures compliant receipts for company audits. Direct fund payouts will be disbursed by your employer\'s designated payroll processor.',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.35),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const AskAiPill(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMetricCard({required String title, required String amount, required String subtitle, required IconData icon, Color? iconColor}) {
+  Widget _buildMetricCard({
+    required String title,
+    required String amount,
+    required String subtitle,
+    required IconData icon,
+    Color iconColor = AppColors.textPrimary,
+  }) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -304,24 +295,27 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-              Icon(icon, size: 16, color: iconColor ?? AppColors.textMuted),
+              Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+              Icon(icon, size: 18, color: iconColor),
             ],
           ),
           const SizedBox(height: 8),
           Text(amount, style: const TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w500)),
+          Text(subtitle, style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
-  Widget _buildTagPill(String text) {
+  Widget _buildTagPill(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(6)),
-      child: Text(text, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -342,7 +336,7 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -352,143 +346,39 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon, color: AppColors.primary, size: 20),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: AppColors.textPrimary, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(merchant, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800, height: 1.2)),
+                    Text(merchant, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w800, height: 1.2)),
                     const SizedBox(height: 2),
-                    Text(sub, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                    Text(sub, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.3)),
                   ],
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(claimId, style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
                   Text(amount, style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
-                  Text(gst, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                  Text(gst, style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(8)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(tags, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
-                Text(date, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-              ],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(tags, style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text(date, style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
           ),
-          if (hasAuditProgress) ...[
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.amber, shape: BoxShape.circle)),
-                    const SizedBox(width: 6),
-                    const Text('FINANCE AUDIT IN PROGRESS', style: TextStyle(color: AppColors.amber, fontSize: 10, fontWeight: FontWeight.w800)),
-                  ],
-                ),
-                const Text('Step 2 of 4', style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildAuditStep('Submitted', isDone: true),
-                _buildAuditStep('In Review', isActive: true),
-                _buildAuditStep('Approval'),
-                _buildAuditStep('Payroll'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8)),
-                    icon: const Icon(Icons.receipt_outlined, size: 14),
-                    label: const Text('View Tax Invoice', style: TextStyle(fontSize: 11)),
-                    onPressed: () {},
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8)),
-                    icon: const Icon(Icons.chat_bubble_outline, size: 14),
-                    label: const Text('Add Note', style: TextStyle(fontSize: 11)),
-                    onPressed: () {},
-                  ),
-                ),
-              ],
-            ),
-          ] else if (approvalNote != null) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: AppColors.greenLight, borderRadius: BorderRadius.circular(8)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.check_circle_outline, color: AppColors.green, size: 14),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(approvalNote, style: const TextStyle(color: AppColors.green, fontSize: 10, fontWeight: FontWeight.w700)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: AppColors.blueLight, borderRadius: BorderRadius.circular(8)),
-                    child: Text(payoutNote ?? '', style: const TextStyle(color: AppColors.blue, fontSize: 10, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildAuditStep(String label, {bool isDone = false, bool isActive = false}) {
-    Color bg = AppColors.surfaceMuted;
-    Color txt = AppColors.textMuted;
-    if (isDone) {
-      bg = AppColors.greenLight;
-      txt = AppColors.green;
-    } else if (isActive) {
-      bg = AppColors.amberLight;
-      txt = AppColors.amber;
-    }
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-        child: Center(
-          child: Text(label, style: TextStyle(color: txt, fontSize: 9, fontWeight: FontWeight.w800)),
-        ),
       ),
     );
   }

@@ -15,9 +15,12 @@ import 'screens/onboarding/phone_otp_screen.dart';
 import 'screens/onboarding/kyc_lite_screen.dart';
 import 'screens/onboarding/employer_link_screen.dart';
 import 'screens/onboarding/consent_screen.dart';
+import 'screens/onboarding/financial_setup_screen.dart';
+import 'services/user_financial_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await UserFinancialService().init();
   runApp(const FinTrackApp());
 }
 
@@ -39,6 +42,7 @@ class FinTrackApp extends StatelessWidget {
         AppRoutes.kycLite: (context) => const KycLiteScreen(),
         AppRoutes.employerLink: (context) => const EmployerLinkScreen(),
         AppRoutes.consent: (context) => const ConsentScreen(),
+        AppRoutes.financialSetup: (context) => const FinancialSetupScreen(),
         AppRoutes.mainShell: (context) => const MainShell(),
         AppRoutes.dashboard: (context) => const ExpenseDashboardScreen(),
         AppRoutes.expenses: (context) => const ExpensesListScreen(),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 
@@ -15,12 +17,30 @@ class _ConsentScreenState extends State<ConsentScreen> {
   bool _consentInsights = true;
   bool _isLoading = false;
 
-  void _completeOnboarding() {
+  Future<void> _completeOnboarding() async {
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 700), () {
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:5001/api/v1/consent'),
+        headers: {
+          'Authorization': 'Bearer mock_token_123',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'upiConsent': _consentSms,
+          'billStorageConsent': _consentAa,
+          'aiUsageConsent': _consentInsights,
+        }),
+      );
+      print('Consent API response: ${response.body}');
+    } catch (e) {
+      print('Consent API error: $e');
+    } finally {
       setState(() => _isLoading = false);
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.mainShell, (route) => false);
-    });
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.mainShell, (route) => false);
+      }
+    }
   }
 
   @override
