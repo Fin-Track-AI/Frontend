@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../screens/main_shell.dart';
 import '../services/session_service.dart';
+import 'fintrack_logo.dart';
 
 class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearchTap;
@@ -56,38 +57,9 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onTap: () => _handleLogoTap(context),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'F.',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'FinTrack',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
+            child: const FinTrackLogo(
+              size: 32,
+              fontSize: 19,
             ),
           ),
         ),

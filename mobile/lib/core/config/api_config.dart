@@ -19,7 +19,7 @@ class ApiConfig {
     try {
       final res = await http
           .get(Uri.parse('$primaryBaseUrl/health'))
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 6));
       if (res.statusCode == 200) {
         _activeBaseUrl = primaryBaseUrl;
         return _activeBaseUrl;

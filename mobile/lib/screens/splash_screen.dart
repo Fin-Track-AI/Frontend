@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../routes/app_routes.dart';
 import '../services/session_service.dart';
+import '../widgets/fintrack_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -58,40 +59,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.secondary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.35),
-                        blurRadius: 28,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.account_balance_wallet_rounded,
-                      size: 44,
-                      color: Colors.white,
-                    ),
-                  ),
+                const FinTrackLogo(
+                  size: 84,
+                  showText: false,
                 ),
                 const SizedBox(height: 24),
                 const Text(
                   'FinTrack',
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: -1,
                   ),
                 ),
