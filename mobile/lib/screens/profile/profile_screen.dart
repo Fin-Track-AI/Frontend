@@ -137,6 +137,129 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
+            // Monthly Salary & Financial Setup Card
+            Container(
+              padding: const EdgeInsets.all(18),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'Financial Setup',
+                                style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w800),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Salary & Fixed Monthly Outflows',
+                                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final updated = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const FinancialSetupScreen(isModalEdit: true)),
+                          );
+                          if (updated == true && mounted) {
+                            setState(() {});
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primary, width: 1.2),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.tune_rounded, size: 14, color: AppColors.primary),
+                        label: const Text('Edit Salary', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: AppColors.divider, height: 1),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Monthly Salary', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₹${UserFinancialService().monthlySalary.toStringAsFixed(0)}',
+                              style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(width: 1, height: 36, color: AppColors.border),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Fixed Obligations', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₹${UserFinancialService().totalFixedObligations.toStringAsFixed(0)}',
+                              style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(width: 1, height: 36, color: AppColors.border),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Safe Cap', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₹${UserFinancialService().safeToSpendCap.toStringAsFixed(0)}',
+                              style: const TextStyle(color: AppColors.green, fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
             // Top Shield Badges
             Center(
               child: Row(
@@ -369,24 +492,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               },
             ),
-            const SizedBox(height: 10),
 
-            // Edit Salary & Fixed Expenses Setup
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                backgroundColor: AppColors.surface,
-                minimumSize: const Size(double.infinity, 48),
-                side: const BorderSide(color: AppColors.primary, width: 1.2),
-              ),
-              icon: const Icon(Icons.tune_rounded, size: 18, color: AppColors.primary),
-              label: const Text('Edit Monthly Salary & Fixed Expenses', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => FinancialSetupScreen(isModalEdit: true)),
-                );
-              },
-            ),
             const SizedBox(height: 10),
 
             // Reset to Fresh Account & Clear Data

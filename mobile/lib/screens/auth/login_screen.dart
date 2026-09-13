@@ -1,7 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/fintrack_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   
   bool _otpSent = false;
   bool _isLoading = false;
-  String? _devOtp;
 
   Future<void> _handleSendOtp() async {
     final email = _emailController.text.trim();
@@ -33,29 +36,17 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final res = await _authService.sendEmailOtp(email: email);
+      await _authService.sendEmailOtp(email: email);
       if (!mounted) return;
 
       setState(() {
         _isLoading = false;
         _otpSent = true;
-        _devOtp = res['devOtp'] as String?;
       });
-
-      final deliveredToInbox = res['deliveredToInbox'] == true;
-
-      // If devOtp is present and not delivered to inbox, fill it for quick testing
-      if (_devOtp != null && !deliveredToInbox) {
-        _otpController.text = _devOtp!;
-      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(deliveredToInbox
-              ? 'Verification code delivered to your inbox at $email!'
-              : (_devOtp != null
-                  ? 'Verification code generated! (Dev Code: $_devOtp)'
-                  : 'Verification code sent to $email')),
+          content: Text('Verification code sent to $email. Please check your inbox.'),
           backgroundColor: AppColors.primary,
           duration: const Duration(seconds: 4),
         ),
@@ -98,6 +89,26 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       final userName = res['user']?['name'] ?? 'User';
+      final token = res['token'] as String?;
+
+      // Auto-grant consent for app features (user can re-toggle anytime in Profile)
+      if (token != null && token.isNotEmpty) {
+        try {
+          http.post(
+            Uri.parse('${ApiConfig.baseUrl}/consent'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'upiConsent': true,
+              'billStorageConsent': true,
+              'aiUsageConsent': true,
+            }),
+          );
+        } catch (_) {}
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Welcome back, $userName!'),
@@ -131,37 +142,9 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 16),
               // Brand Logo
-              Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'F.',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'FinTrack',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
+              const FinTrackLogo(
+                size: 40,
+                fontSize: 24,
               ),
               const SizedBox(height: 32),
 
@@ -290,29 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ] else ...[
-                if (_devOtp != null) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.primary),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.developer_mode, color: AppColors.primary, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Development Code: $_devOtp (Auto-filled)',
-                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+
 
                 // OTP Input State
                 Container(
@@ -382,8 +343,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: AppColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     Icon(Icons.shield_outlined, color: AppColors.green, size: 20),
                     SizedBox(width: 10),
                     Expanded(

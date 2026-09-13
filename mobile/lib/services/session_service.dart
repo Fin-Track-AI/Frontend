@@ -27,7 +27,10 @@ class SessionService {
   bool get isLoggedIn => _token != null && _token!.isNotEmpty;
 
   /// User unique ID
-  String get userId => _user?['id'] as String? ?? '';
+  String get userId {
+    if (_user == null) return '';
+    return (_user!['id'] ?? _user!['_id'] ?? '').toString();
+  }
 
   /// User's display name
   String get userName {

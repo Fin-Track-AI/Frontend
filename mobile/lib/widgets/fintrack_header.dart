@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
+import '../routes/app_routes.dart';
 import '../screens/main_shell.dart';
 import '../services/session_service.dart';
+import 'fintrack_logo.dart';
 
 class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearchTap;
@@ -35,20 +37,28 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
     if (onProfileTap != null) {
       onProfileTap!();
     } else {
-      MainShell.navigateToTab(4);
-      if (Navigator.canPop(context)) {
-        Navigator.popUntil(context, (route) => route.isFirst);
+      final currentRoute = ModalRoute.of(context)?.settings.name;
+      if (currentRoute != AppRoutes.profile) {
+        Navigator.pushNamed(context, AppRoutes.profile);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.canPop(context);
+
     return AppBar(
       backgroundColor: AppColors.background,
       elevation: 0,
       automaticallyImplyLeading: false,
-      titleSpacing: 12.0,
+      leading: canPop
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
+              onPressed: () => Navigator.pop(context),
+            )
+          : null,
+      titleSpacing: canPop ? 0.0 : 12.0,
       title: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
@@ -56,38 +66,9 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onTap: () => _handleLogoTap(context),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'F.',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'FinTrack',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
+            child: const FinTrackLogo(
+              size: 32,
+              fontSize: 19,
             ),
           ),
         ),
