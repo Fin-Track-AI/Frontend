@@ -4,6 +4,7 @@ import '../../widgets/fintrack_header.dart';
 import '../../widgets/ask_ai_pill.dart';
 import '../transaction/add_transaction_modal.dart';
 import '../../services/user_financial_service.dart';
+import 'statement_import_screen.dart';
 
 class ExpensesListScreen extends StatefulWidget {
   const ExpensesListScreen({super.key});
@@ -15,7 +16,7 @@ class ExpensesListScreen extends StatefulWidget {
 class _ExpensesListScreenState extends State<ExpensesListScreen> {
   String _selectedFilter = 'All';
   final UserFinancialService _financialService = UserFinancialService();
-  final List<String> _filters = ['All', 'Manual Ledger', 'Reimbursable'];
+  final List<String> _filters = ['All', 'Expenses', 'Income', 'Bank Statement', 'Reimbursable'];
 
   @override
   void initState() {
@@ -32,17 +33,45 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
     }
   }
 
+  Future<void> _openImportStatement() async {
+    final imported = await StatementImportScreen.show(context);
+    if (imported == true && mounted) {
+      await _financialService.fetchBackendData();
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final totalSpent = _financialService.totalSpent;
-    final transactions = _financialService.userTransactions;
+    final currentSpent = _financialService.currentMonthSpent;
+    final currentIncome = _financialService.currentMonthIncome;
+    final allTransactions = _financialService.userTransactions;
+
+    final transactions = allTransactions.where((tx) {
+      if (_selectedFilter == 'Expenses') {
+        return tx['type'] != 'income';
+      }
+      if (_selectedFilter == 'Income') {
+        return tx['type'] == 'income';
+      }
+      if (_selectedFilter == 'Bank Statement') {
+        return tx['source'] == 'statement';
+      }
+      if (_selectedFilter == 'Reimbursable') {
+        return tx['isReimbursable'] == true;
+      }
+      return true;
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const FinTrackHeader(),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async => setState(() {}),
+          onRefresh: () async {
+            await _financialService.fetchBackendData();
+            if (mounted) setState(() {});
+          },
           color: AppColors.primary,
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -72,8 +101,14 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Text('TOTAL SEP ', style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w800)),
-                        Text('₹${totalSpent.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w800)),
+                        const Text('SPENT ', style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w800)),
+                        Text('₹${currentSpent.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w800)),
+                        if (currentIncome > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(width: 1, height: 12, color: AppColors.border),
+                          const SizedBox(width: 8),
+                          Text('+₹${currentIncome.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w800)),
+                        ],
                       ],
                     ),
                   ),
@@ -84,10 +119,9 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
               // Search Bar
               TextField(
                 decoration: InputDecoration(
-                  hintText: 'Search merchants, notes, tags...',
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
-                  suffixIcon: const Icon(Icons.tune_rounded, color: AppColors.textSecondary, size: 20),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  hintText: 'Search narration, merchant, category...',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textMuted),
+                  filled: true,
                   fillColor: AppColors.surface,
                 ),
               ),
@@ -122,7 +156,7 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Add Expense & Export Action Buttons
+              // Add Expense, Import Statement & Export Action Buttons
               Row(
                 children: [
                   Expanded(
@@ -133,26 +167,36 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       icon: const Icon(Icons.add, size: 18, color: Colors.white),
-                      label: const Text('+ Add Expense', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                      label: const Text('+ Add', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
                       onPressed: _openAddExpenseModal,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
-                    flex: 2,
+                    flex: 4,
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         backgroundColor: AppColors.surface,
                         padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: AppColors.primary),
                       ),
-                      icon: const Icon(Icons.file_upload_outlined, size: 18, color: AppColors.textPrimary),
-                      label: const Text('Export', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Expense export report generated (CSV/PDF)')),
-                        );
-                      },
+                      icon: const Icon(Icons.account_balance_outlined, size: 16, color: AppColors.primary),
+                      label: const Text('Import Statement', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12)),
+                      onPressed: _openImportStatement,
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: AppColors.surface,
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                    ),
+                    child: const Icon(Icons.file_upload_outlined, size: 18, color: AppColors.textPrimary),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Expense export report generated (CSV/PDF)')),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -172,12 +216,12 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
                       const Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.textMuted),
                       const SizedBox(height: 12),
                       const Text(
-                        'No Expenses Logged Yet',
+                        'No Transactions Logged Yet',
                         style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Your ledger is fresh and clean. Add an expense or scan a receipt to get started!',
+                        'Your ledger is fresh and clean. Add an expense or import a bank statement to get started!',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                       ),
@@ -191,19 +235,43 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
                   ),
                 ),
               ] else ...[
-                _buildTimelineHeader('September Ledger', '${transactions.length} items', '₹${totalSpent.toStringAsFixed(0)}'),
+                _buildTimelineHeader(
+                  'Transaction Ledger',
+                  '${transactions.length} items',
+                  _selectedFilter == 'Income'
+                      ? '+₹${currentIncome.toStringAsFixed(0)}'
+                      : '₹${currentSpent.toStringAsFixed(0)} spent',
+                ),
                 const SizedBox(height: 8),
                 ...transactions.map((tx) {
+                  final isIncome = tx['type'] == 'income';
+                  final amountNum = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+                  final badgeText = isIncome
+                      ? '💰 Income'
+                      : (tx['source'] == 'statement')
+                          ? '🏦 Imported'
+                          : (tx['isReimbursable'] == true)
+                              ? 'Reimbursable'
+                              : 'Personal';
+                  final badgeColor = isIncome
+                      ? AppColors.green
+                      : (tx['source'] == 'statement')
+                          ? AppColors.primary
+                          : (tx['isReimbursable'] == true)
+                              ? AppColors.green
+                              : AppColors.textMuted;
+
                   return _buildExpenseTile(
-                    icon: Icons.shopping_bag_outlined,
-                    iconColor: AppColors.primary,
-                    title: tx['title'] as String? ?? 'Expense',
-                    category: tx['category'] as String? ?? 'General',
+                    icon: _txIcon(tx),
+                    iconColor: _txIconColor(tx),
+                    title: tx['title'] as String? ?? (isIncome ? 'Income Credit' : 'Expense'),
+                    category: tx['category'] as String? ?? (isIncome ? 'Salary' : 'General'),
                     time: tx['date'] as String? ?? '',
                     method: tx['paidVia'] as String? ?? 'UPI',
-                    badgeText: (tx['isReimbursable'] == true) ? 'Reimbursable' : 'Personal',
-                    badgeColor: (tx['isReimbursable'] == true) ? AppColors.green : AppColors.textMuted,
-                    amount: '₹${(tx['amount'] as num).toStringAsFixed(0)}',
+                    badgeText: badgeText,
+                    badgeColor: badgeColor,
+                    amount: '${isIncome ? '+' : '-'}₹${amountNum.toStringAsFixed(0)}',
+                    isIncome: isIncome,
                   );
                 }).toList(),
               ],
@@ -215,6 +283,18 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
         ),
       ),
     );
+  }
+
+  IconData _txIcon(Map<String, dynamic> tx) {
+    if (tx['type'] == 'income') return Icons.arrow_downward_rounded;
+    if (tx['source'] == 'statement') return Icons.account_balance_outlined;
+    return Icons.shopping_bag_outlined;
+  }
+
+  Color _txIconColor(Map<String, dynamic> tx) {
+    if (tx['type'] == 'income') return AppColors.green;
+    if (tx['source'] == 'statement') return AppColors.primary;
+    return AppColors.primary;
   }
 
   Widget _buildTimelineHeader(String primary, String secondary, String total) {
@@ -243,6 +323,7 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
     required String badgeText,
     Color? badgeColor,
     required String amount,
+    bool isIncome = false,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -294,7 +375,14 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(amount, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w800)),
+              Text(
+                amount,
+                style: TextStyle(
+                  color: isIncome ? AppColors.green : AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(height: 2),
               Text(time, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
             ],

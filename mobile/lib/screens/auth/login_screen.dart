@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
@@ -86,6 +89,26 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       final userName = res['user']?['name'] ?? 'User';
+      final token = res['token'] as String?;
+
+      // Auto-grant consent for app features (user can re-toggle anytime in Profile)
+      if (token != null && token.isNotEmpty) {
+        try {
+          http.post(
+            Uri.parse('${ApiConfig.baseUrl}/consent'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'upiConsent': true,
+              'billStorageConsent': true,
+              'aiUsageConsent': true,
+            }),
+          );
+        } catch (_) {}
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Welcome back, $userName!'),
@@ -320,8 +343,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: AppColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     Icon(Icons.shield_outlined, color: AppColors.green, size: 20),
                     SizedBox(width: 10),
                     Expanded(

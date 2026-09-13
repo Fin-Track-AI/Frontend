@@ -12,6 +12,7 @@ class OcrService {
   Future<Map<String, dynamic>> parseReceiptImage({
     String? filePath,
     Uint8List? fileBytes,
+    String? fileName,
     required String authToken,
   }) async {
     final uri = Uri.parse('$baseUrl/ocr/upload-and-parse');
@@ -20,10 +21,11 @@ class OcrService {
     request.headers['Authorization'] = 'Bearer $authToken';
 
     if (fileBytes != null && fileBytes.isNotEmpty) {
+      final name = fileName ?? 'receipt.jpg';
       request.files.add(http.MultipartFile.fromBytes(
         'billImage',
         fileBytes,
-        filename: 'receipt.jpg',
+        filename: name,
       ));
     } else if (filePath != null && filePath.isNotEmpty) {
       request.files.add(await http.MultipartFile.fromPath('billImage', filePath));
@@ -36,7 +38,14 @@ class OcrService {
     final jsonResponse = jsonDecode(response.body);
 
     if (response.statusCode == 200 && jsonResponse['success'] == true) {
-      return jsonResponse['data']['extractedData'];
+      final data = jsonResponse['data'];
+      if (data is Map<String, dynamic>) {
+        if (data['extractedData'] is Map<String, dynamic>) {
+          return data['extractedData'];
+        }
+        return data;
+      }
+      return <String, dynamic>{};
     } else {
       throw Exception(jsonResponse['message'] ?? 'OCR extraction failed (${response.statusCode})');
     }

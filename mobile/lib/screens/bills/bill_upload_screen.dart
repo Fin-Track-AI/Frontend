@@ -60,7 +60,7 @@ class _BillUploadScreenState extends State<BillUploadScreen> {
 
     try {
       final result = await _service.uploadBillPhoto(
-        imageFile: _selectedImage!,
+        filePath: _selectedImage!.path,
         merchantName: _merchantController.text.trim(),
         totalAmount: amount,
         authToken: widget.authToken,

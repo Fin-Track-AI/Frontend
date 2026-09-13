@@ -14,7 +14,7 @@ class ApiConfig {
   /// Getter for the active base URL
   static String get baseUrl => _activeBaseUrl;
 
-  /// Quick check if primary is reachable; only falls back to localhost in debug mode
+  /// Quick check if primary or local backend is reachable
   static Future<String> getActiveBaseUrl() async {
     // In release APKs on real phones, always use Cloud Run (localhost does not exist on physical phones)
     if (kReleaseMode) {
@@ -22,10 +22,23 @@ class ApiConfig {
       return _activeBaseUrl;
     }
 
+    // In debug mode, prioritize local backend if it's running on port 5001
+    try {
+      final localRes = await http
+          .get(Uri.parse('$localFallbackUrl/health'))
+          .timeout(const Duration(seconds: 2));
+      if (localRes.statusCode == 200) {
+        _activeBaseUrl = localFallbackUrl;
+        debugPrint('[ApiConfig] Connected to local backend with FinTrack AI: $localFallbackUrl');
+        return _activeBaseUrl;
+      }
+    } catch (_) {}
+
+    // Fallback to Cloud Run
     try {
       final res = await http
           .get(Uri.parse('$primaryBaseUrl/health'))
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         _activeBaseUrl = primaryBaseUrl;
         return _activeBaseUrl;

@@ -40,9 +40,6 @@ class FinTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Decide initial route based on session state
-    final bool isLoggedIn = SessionService().isLoggedIn;
-
     return MaterialApp(
       title: 'FinTrack',
       debugShowCheckedModeBanner: false,

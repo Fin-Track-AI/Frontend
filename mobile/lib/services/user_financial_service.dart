@@ -28,20 +28,211 @@ class UserFinancialService {
 
   double get totalFixedObligations => rent + bills + emi;
   double get safeToSpendCap => (monthlySalary - totalFixedObligations) > 0 ? (monthlySalary - totalFixedObligations) : monthlySalary;
-  
+  /// Returns the active month (YYYY-MM) present in transactions, defaulting to latest or current
+  String get activeMonth {
+    final now = DateTime.now();
+    final currentYM = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    
+    final hasCurrent = userTransactions.any((t) => (t['date'] as String? ?? '').startsWith(currentYM));
+    if (hasCurrent) return currentYM;
+
+    String latest = currentYM;
+    for (var tx in userTransactions) {
+      final d = (tx['date'] as String? ?? '').trim();
+      if (d.length >= 7 && (latest == currentYM || d.substring(0, 7).compareTo(latest) > 0)) {
+        latest = d.substring(0, 7);
+      }
+    }
+    return latest;
+  }
+
+  bool _isTxIncome(Map<String, dynamic> tx) {
+    if (tx['type'] == 'income') return true;
+    if (tx['category'] == 'Salary') return true;
+    final title = (tx['title'] as String? ?? '').toLowerCase();
+    final note = (tx['note'] as String? ?? '').toLowerCase();
+    if (title.contains('salary') || note.contains('salary')) return true;
+    return false;
+  }
+
+  /// Expenses scoped to the active/current month (strictly excludes income)
+  double get currentMonthSpent {
+    final ym = activeMonth;
+    double sum = 0.0;
+    for (var tx in userTransactions) {
+      if (_isTxIncome(tx)) continue;
+      final d = (tx['date'] as String? ?? '').trim();
+      if (d.startsWith(ym) || userTransactions.length < 5) {
+        sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      }
+    }
+    return sum;
+  }
+
+  /// Returns the latest salary transaction, if any
+  Map<String, dynamic>? get latestSalaryTransaction {
+    Map<String, dynamic>? latest;
+    for (var tx in userTransactions) {
+      final isSalary = tx['category'] == 'Salary' ||
+          (tx['type'] == 'income' &&
+              ((tx['title'] as String? ?? '').toLowerCase().contains('salary') ||
+               (tx['note'] as String? ?? '').toLowerCase().contains('salary')));
+      if (isSalary) {
+        final d = (tx['date'] as String? ?? '').trim();
+        if (d.isNotEmpty) {
+          if (latest == null || d.compareTo(latest['date'] as String? ?? '') > 0) {
+            latest = tx;
+          }
+        }
+      }
+    }
+    return latest;
+  }
+
+  /// Returns the start date of the active spending cycle (YYYY-MM-DD)
+  String get currentCycleStartDate {
+    final salaryTx = latestSalaryTransaction;
+    if (salaryTx != null) {
+      final d = (salaryTx['date'] as String? ?? '').trim();
+      if (d.isNotEmpty) return d;
+    }
+    return '$activeMonth-01';
+  }
+
+  /// Label describing the current active spending cycle
+  String get currentCycleLabel {
+    final salaryTx = latestSalaryTransaction;
+    if (salaryTx != null) {
+      final d = (salaryTx['date'] as String? ?? '').trim();
+      if (d.isNotEmpty) {
+        try {
+          final dt = DateTime.parse(d);
+          final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return 'Cycle: Since ${dt.day} ${months[dt.month - 1]} Salary';
+        } catch (_) {
+          return 'Cycle: Since $d Salary';
+        }
+      }
+    }
+    return 'Active Month: $activeMonth';
+  }
+
+  /// Discretionary expenses in the active spending cycle (since latest salary arrived).
+  /// Excludes income/salary, and excludes fixed obligations like Rent when already deducted in Safe Cap.
+  double get currentCycleDiscretionarySpent {
+    final salaryTx = latestSalaryTransaction;
+    final cycleStart = currentCycleStartDate;
+
+    double sum = 0.0;
+    for (var tx in userTransactions) {
+      if (_isTxIncome(tx)) continue;
+
+      // Fixed rent is already accounted for in safeToSpendCap
+      if (rent > 0 && (tx['category'] as String? ?? '').toLowerCase() == 'rent') {
+        continue;
+      }
+
+      final d = (tx['date'] as String? ?? '').trim();
+      if (salaryTx != null) {
+        if (d.compareTo(cycleStart) > 0) {
+          sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        } else if (d == cycleStart) {
+          if (tx['source'] != 'statement') {
+            sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+      } else {
+        if (d.startsWith(activeMonth) || userTransactions.length < 5) {
+          sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        }
+      }
+    }
+    return sum;
+  }
+
+  /// Total expenses in active spending cycle (since latest salary arrived)
+  double get currentCycleSpent {
+    final salaryTx = latestSalaryTransaction;
+    final cycleStart = currentCycleStartDate;
+
+    double sum = 0.0;
+    for (var tx in userTransactions) {
+      if (_isTxIncome(tx)) continue;
+      final d = (tx['date'] as String? ?? '').trim();
+      if (salaryTx != null) {
+        if (d.compareTo(cycleStart) > 0) {
+          sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        } else if (d == cycleStart) {
+          if (tx['source'] != 'statement') {
+            sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+      } else {
+        if (d.startsWith(activeMonth) || userTransactions.length < 5) {
+          sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        }
+      }
+    }
+    return sum;
+  }
+
+  /// Discretionary expenses scoped to active calendar month
+  double get currentMonthDiscretionarySpent {
+    final ym = activeMonth;
+    double sum = 0.0;
+    for (var tx in userTransactions) {
+      if (_isTxIncome(tx)) continue;
+      if (rent > 0 && (tx['category'] as String? ?? '').toLowerCase() == 'rent') {
+        continue;
+      }
+      final d = (tx['date'] as String? ?? '').trim();
+      if (d.startsWith(ym) || userTransactions.length < 5) {
+        sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      }
+    }
+    return sum;
+  }
+
+  /// Income scoped to the active/current month
+  double get currentMonthIncome {
+    final ym = activeMonth;
+    double sum = 0.0;
+    for (var tx in userTransactions) {
+      if (!_isTxIncome(tx)) continue;
+      final d = (tx['date'] as String? ?? '').trim();
+      if (d.startsWith(ym)) {
+        sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      }
+    }
+    return sum;
+  }
+
+  /// Total expenses across all time (strictly excludes income)
   double get totalSpent {
     double sum = 0.0;
     for (var tx in userTransactions) {
+      if (_isTxIncome(tx)) continue;
       sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
     }
     return sum;
   }
 
-  double get remainingSafeToSpend => safeToSpendCap - totalSpent;
+  /// Total income across all time
+  double get totalIncome {
+    double sum = 0.0;
+    for (var tx in userTransactions) {
+      if (_isTxIncome(tx)) {
+        sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      }
+    }
+    return sum;
+  }
+
+  double get remainingSafeToSpend => safeToSpendCap - currentCycleDiscretionarySpent;
 
   double get budgetUtilizedPercent {
     if (safeToSpendCap <= 0) return 0.0;
-    final pct = (totalSpent / safeToSpendCap) * 100;
+    final pct = (currentCycleDiscretionarySpent / safeToSpendCap) * 100;
     return pct.clamp(0.0, 100.0);
   }
 
@@ -66,6 +257,104 @@ class UserFinancialService {
       }
     } else {
       userTransactions = [];
+    }
+
+    // Sync from backend if user is authenticated
+    await fetchBackendData();
+  }
+
+  Future<void> fetchBackendData() async {
+    final token = SessionService().token;
+    if (token == null || token.isEmpty) return;
+
+    try {
+      final baseUrl = await ApiConfig.getActiveBaseUrl();
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+      // 1. Fetch user profile to get latest salary/rent
+      final profileRes = await http.get(Uri.parse('$baseUrl/auth/profile'), headers: headers);
+      if (profileRes.statusCode == 200) {
+        final body = jsonDecode(profileRes.body);
+        final user = body['data']?['user'];
+        if (user != null) {
+          final salaryVal = (user['salary'] as num?)?.toDouble() ?? 0.0;
+          final rentVal = (user['rent'] as num?)?.toDouble() ?? 0.0;
+          final billsVal = (user['bills'] as num?)?.toDouble() ?? 0.0;
+          final emiVal = (user['emi'] as num?)?.toDouble() ?? 0.0;
+          final nameVal = user['name'] as String? ?? userName;
+
+          if (salaryVal > 0) monthlySalary = salaryVal;
+          if (rentVal > 0) rent = rentVal;
+          if (billsVal > 0) bills = billsVal;
+          if (emiVal > 0) emi = emiVal;
+          userName = nameVal;
+          isSetupComplete = user['isSetupComplete'] == true || salaryVal > 0;
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble(_userKey('monthly_salary'), monthlySalary);
+          await prefs.setDouble(_userKey('rent'), rent);
+          await prefs.setDouble(_userKey('bills'), bills);
+          await prefs.setDouble(_userKey('emi'), emi);
+          await prefs.setString(_userKey('user_name'), userName);
+          await prefs.setBool(_userKey('setup_complete'), isSetupComplete);
+        }
+      }
+
+      // 2. Fetch user transactions from MongoDB
+      final txRes = await http.get(Uri.parse('$baseUrl/transactions?limit=1000'), headers: headers);
+      if (txRes.statusCode == 200) {
+        final body = jsonDecode(txRes.body);
+        final rawList = body['data']?['transactions'] as List<dynamic>?;
+        if (rawList != null) {
+          final backendTxns = rawList.map((tx) {
+            final map = tx as Map<String, dynamic>;
+            final dateRaw = map['date']?.toString() ?? '';
+            final dateStr = dateRaw.contains('T') ? dateRaw.split('T')[0] : dateRaw;
+
+            return {
+              'id': map['_id']?.toString() ?? map['id']?.toString() ?? '',
+              'title': map['title'] ?? 'Transaction',
+              'category': map['category'] ?? 'Others',
+              'amount': (map['amount'] as num?)?.toDouble() ?? 0.0,
+              'type': map['type'] ?? 'expense',
+              'date': dateStr,
+              'paidVia': map['paidVia'] ?? 'UPI',
+              'source': map['source'] ?? 'manual',
+              'isReimbursable': map['isReimbursable'] == true,
+              'note': map['note'] ?? '',
+            };
+          }).toList();
+
+          userTransactions = backendTxns;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> importStatementTransactions({
+    required List<Map<String, dynamic>> transactions,
+    double? overrideSalary,
+    double? overrideRent,
+  }) async {
+    // Prepend new statement transactions
+    userTransactions.insertAll(0, transactions);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
+
+    if (overrideSalary != null && overrideSalary > 0) {
+      monthlySalary = overrideSalary;
+      await prefs.setDouble(_userKey('monthly_salary'), overrideSalary);
+      await SessionService().updateUser({'salary': overrideSalary});
+    }
+
+    if (overrideRent != null && overrideRent > 0) {
+      rent = overrideRent;
+      await prefs.setDouble(_userKey('rent'), overrideRent);
     }
   }
 
@@ -98,8 +387,9 @@ class UserFinancialService {
     final token = SessionService().token;
     if (token != null && token.isNotEmpty) {
       try {
+        final activeBaseUrl = await ApiConfig.getActiveBaseUrl();
         await http.put(
-          Uri.parse('${ApiConfig.baseUrl}/auth/profile'),
+          Uri.parse('$activeBaseUrl/auth/profile'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
@@ -122,13 +412,16 @@ class UserFinancialService {
     required double amount,
     String? paidVia,
     bool isReimbursable = false,
+    String? dateString,
   }) async {
+    final now = DateTime.now();
+    final todayIso = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final tx = {
-      'id': 'TX_${DateTime.now().millisecondsSinceEpoch}',
+      'id': 'TX_${now.millisecondsSinceEpoch}',
       'title': title,
       'category': category,
       'amount': amount,
-      'date': 'Today, ${_formatTime(DateTime.now())}',
+      'date': dateString ?? todayIso,
       'paidVia': paidVia ?? 'UPI',
       'isReimbursable': isReimbursable,
     };
