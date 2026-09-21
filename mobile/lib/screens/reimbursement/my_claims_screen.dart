@@ -136,6 +136,13 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                                     ? 1
                                     : 0;
 
+
+
+                        final hasRejectionReason = claim['rejectionReason'] != null &&
+                            claim['rejectionReason'].toString().trim().isNotEmpty;
+                        final hasAdminNotes = claim['adminNotes'] != null &&
+                            claim['adminNotes'].toString().trim().isNotEmpty;
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 14),
                           elevation: 0,
@@ -300,11 +307,56 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                                     const Icon(Icons.business, size: 14, color: AppColors.textMuted),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Employer: ${claim['employerName'] ?? 'Unlinked'}',
+                                      'Employer: ${claim['employerName'] ?? 'TechCorp Solutions India'}',
                                       style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                     ),
                                   ],
                                 ),
+                                if (hasRejectionReason) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.redLight,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0x4DDC2626)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.error_outline, size: 14, color: AppColors.red),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Reason: ${claim['rejectionReason']}',
+                                            style: const TextStyle(fontSize: 12, color: AppColors.red, fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else if (hasAdminNotes) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceMuted,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.sticky_note_2_outlined, size: 14, color: AppColors.textSecondary),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Employer Admin: ${claim['adminNotes']}',
+                                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 const Divider(height: 16),
                                 Wrap(
                                   spacing: 6,
