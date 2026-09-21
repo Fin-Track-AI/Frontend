@@ -101,6 +101,21 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                         final claim = _claims[index];
                         final status = claim['status'] ?? 'Submitted';
 
+                        Color statusColor = AppColors.primary;
+                        Color statusBg = AppColors.primaryLight;
+                        if (status == 'Approved' || status == 'Paid' || status == 'Reimbursed') {
+                          statusColor = AppColors.green;
+                          statusBg = AppColors.greenLight;
+                        } else if (status == 'Rejected') {
+                          statusColor = AppColors.red;
+                          statusBg = AppColors.redLight;
+                        }
+
+                        final hasRejectionReason = claim['rejectionReason'] != null &&
+                            claim['rejectionReason'].toString().trim().isNotEmpty;
+                        final hasAdminNotes = claim['adminNotes'] != null &&
+                            claim['adminNotes'].toString().trim().isNotEmpty;
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           elevation: 0,
@@ -126,14 +141,14 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: AppColors.primaryLight,
+                                        color: statusBg,
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: AppColors.primary),
+                                        border: Border.all(color: statusColor),
                                       ),
                                       child: Text(
                                         status,
-                                        style: const TextStyle(
-                                          color: AppColors.primary,
+                                        style: TextStyle(
+                                          color: statusColor,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
                                         ),
@@ -143,7 +158,7 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '\$${(claim['amount'] ?? 0.0).toStringAsFixed(2)}',
+                                  '₹${(claim['amount'] ?? 0.0).toStringAsFixed(0)}',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -156,11 +171,56 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                                     const Icon(Icons.business, size: 14, color: AppColors.textMuted),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Employer: ${claim['employerName'] ?? 'Unlinked'}',
+                                      'Employer: ${claim['employerName'] ?? 'TechCorp Solutions India'}',
                                       style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                     ),
                                   ],
                                 ),
+                                if (hasRejectionReason) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.redLight,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.red.withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.error_outline, size: 14, color: AppColors.red),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Reason: ${claim['rejectionReason']}',
+                                            style: const TextStyle(fontSize: 12, color: AppColors.red, fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else if (hasAdminNotes) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceMuted,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.sticky_note_2_outlined, size: 14, color: AppColors.textSecondary),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Employer Admin: ${claim['adminNotes']}',
+                                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 const Divider(height: 16),
                                 Wrap(
                                   spacing: 6,
