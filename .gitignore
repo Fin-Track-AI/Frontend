@@ -2,6 +2,11 @@
 jiraproject_context/
 jira_context/
 
+# Sibling cloned repos (do not commit inside frontend)
+Backend/
+Landing-Page/
+Employeer-Side-Dashboard/
+
 # Environment variables & secrets
 .env
 .env.local
