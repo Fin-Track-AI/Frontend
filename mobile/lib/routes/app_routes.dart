@@ -18,4 +18,6 @@ class AppRoutes {
   static const String aiAssistant = '/ai-assistant';
   static const String profile = '/profile';
   static const String securityConsent = '/profile/security-consent';
+  static const String budgetsAlerts = '/expenses/budgets-alerts';
+  static const String peerBenchmarking = '/expenses/peer-benchmarking';
 }
