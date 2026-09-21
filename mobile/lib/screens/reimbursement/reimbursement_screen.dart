@@ -41,12 +41,14 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
         final amt = (c['amount'] as num?)?.toDouble() ?? 0;
         switch (c['status']) {
           case 'Submitted':
+          case 'Pending':
             pending += amt;
             break;
           case 'In Review':
             inReview += amt;
             break;
           case 'Approved':
+          case 'Paid':
           case 'Reimbursed':
             approved += amt;
             break;
