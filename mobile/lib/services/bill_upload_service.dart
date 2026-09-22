@@ -12,6 +12,7 @@ class BillUploadService {
   Future<Map<String, dynamic>> uploadBillPhoto({
     String? filePath,
     Uint8List? fileBytes,
+    String? fileName,
     required String merchantName,
     required double totalAmount,
     required String authToken,
@@ -24,10 +25,11 @@ class BillUploadService {
     request.fields['totalAmount'] = totalAmount.toString();
 
     if (fileBytes != null && fileBytes.isNotEmpty) {
+      final name = fileName ?? 'receipt.jpg';
       request.files.add(http.MultipartFile.fromBytes(
         'billImage',
         fileBytes,
-        filename: 'receipt.jpg',
+        filename: name,
       ));
     } else if (filePath != null && filePath.isNotEmpty) {
       request.files.add(await http.MultipartFile.fromPath('billImage', filePath));

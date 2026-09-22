@@ -82,43 +82,76 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
         _errorMessage = null;
       });
 
-      // 1. Upload Bill to Secure Storage
-      final uploadRes = await _billService.uploadBillPhoto(
-        filePath: _imagePath,
-        fileBytes: _imageBytes,
-        merchantName: _titleController.text.isNotEmpty ? _titleController.text : 'Scanned Expense',
-        totalAmount: double.tryParse(_amountController.text) ?? 0.0,
-        authToken: widget.authToken,
-      );
+      // 1. Run OCR Extraction first to parse receipt & auto-fill fields
+      Map<String, dynamic> ocrData = {};
+      try {
+        ocrData = await _ocrService.parseReceiptImage(
+          filePath: _imagePath,
+          fileBytes: _imageBytes,
+          fileName: pickedFile.name,
+          authToken: widget.authToken,
+        );
 
-      _attachedBillId = uploadRes['data']['id'];
+        if (ocrData['merchant'] != null && ocrData['merchant'].toString().isNotEmpty) {
+          _titleController.text = ocrData['merchant'].toString();
+        }
+        if (ocrData['amount'] != null) {
+          _amountController.text = (ocrData['amount'] ?? 0.0).toString();
+        }
+        if (ocrData['date'] != null && ocrData['date'].toString().isNotEmpty) {
+          _dateController.text = ocrData['date'].toString();
+        }
+        if (ocrData['tax'] != null) {
+          _taxController.text = (ocrData['tax'] ?? 0.0).toString();
+        }
 
-      // 2. Run OCR Extraction
-      final ocrData = await _ocrService.parseReceiptImage(
-        filePath: _imagePath,
-        fileBytes: _imageBytes,
-        authToken: widget.authToken,
-      );
+        final ocrCat = ocrData['category']?.toString() ?? '';
+        if (ocrCat.contains('Food') || ocrCat.contains('Dining') || ocrCat.contains('Groceries')) {
+          _selectedCategory = 'Meals & Dining';
+        } else if (ocrCat.contains('Travel') || ocrCat.contains('Commute')) {
+          _selectedCategory = 'Travel & Commute';
+        } else if (ocrCat.contains('Office') || ocrCat.contains('Shopping')) {
+          _selectedCategory = 'Office Supplies';
+        } else if (ocrCat.contains('Health') || ocrCat.contains('Medical')) {
+          _selectedCategory = 'Medical & Health';
+        } else if (_categories.contains(ocrCat)) {
+          _selectedCategory = ocrCat;
+        }
+
+        _isLowConfidence = ocrData['isLowConfidence'] ?? false;
+      } catch (ocrErr) {
+        debugPrint('OCR parsing note: $ocrErr');
+      }
+
+      // 2. Upload Bill to Secure Storage
+      try {
+        final uploadRes = await _billService.uploadBillPhoto(
+          filePath: _imagePath,
+          fileBytes: _imageBytes,
+          fileName: pickedFile.name,
+          merchantName: _titleController.text.isNotEmpty ? _titleController.text : 'Scanned Expense',
+          totalAmount: double.tryParse(_amountController.text) ?? 0.0,
+          authToken: widget.authToken,
+        );
+        _attachedBillId = uploadRes['data']?['id'] ?? uploadRes['data']?['billId'];
+      } catch (uploadErr) {
+        debugPrint('Bill upload note: $uploadErr');
+      }
 
       setState(() {
         _isProcessingOcr = false;
-        _titleController.text = ocrData['merchant'] ?? 'Expense Claim';
-        _amountController.text = (ocrData['amount'] ?? 0.0).toString();
-        _dateController.text = ocrData['date'] ?? '';
-        _taxController.text = (ocrData['tax'] ?? 0.0).toString();
-
-        _isLowConfidence = ocrData['isLowConfidence'] ?? false;
-
         if (_isLowConfidence) {
           _statusMessage = '⚠️ Low OCR confidence. Please review pre-filled values.';
-        } else {
+        } else if (ocrData.isNotEmpty) {
           _statusMessage = '✨ Bill uploaded & fields auto-extracted via OCR!';
+        } else {
+          _statusMessage = '📸 Receipt attached. Please verify expense details below.';
         }
       });
     } catch (e) {
       setState(() {
         _isProcessingOcr = false;
-        _errorMessage = 'OCR / Attachment failed: ${e.toString().replaceAll('Exception: ', '')}';
+        _errorMessage = 'Attachment failed: ${e.toString().replaceAll('Exception: ', '')}';
       });
     }
   }
