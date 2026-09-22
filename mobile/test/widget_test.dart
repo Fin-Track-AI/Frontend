@@ -8,5 +8,8 @@ void main() {
 
     // Verify splash screen renders FinTrack branding
     expect(find.text('FinTrack'), findsOneWidget);
+
+    // Allow splash timer to complete
+    await tester.pumpAndSettle(const Duration(seconds: 3));
   });
 }

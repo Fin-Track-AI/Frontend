@@ -21,6 +21,7 @@ class AppColors {
   
   static const Color red = Color(0xFFDC2626); // Red for -debits, you owe
   static const Color redLight = Color(0xFFFEF2F2);
+  static const Color redBorder = Color(0xFFFECACA);
   
   static const Color amber = Color(0xFFD97706); // Amber for alerts
   static const Color amberLight = Color(0xFFFFFBEB);
