@@ -1,57 +1,48 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/fintrack_logo.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class SignUpScreen extends StatefulWidget {
+  const SignUpScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
 
-  final TextEditingController _identifierController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passcodeController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
 
-  bool _isPhoneMode = false;
   bool _obscurePasscode = true;
   bool _otpSent = false;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _identifierController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
     _passcodeController.dispose();
     _otpController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleRequestOtp() async {
+  Future<void> _handleSendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final identifier = _identifierController.text.trim();
+    final email = _emailController.text.trim();
     setState(() => _isLoading = true);
 
     try {
-      if (_isPhoneMode) {
-        // Phone login flow
-        await _authService.loginWithPhone(phone: identifier);
-        if (!mounted) return;
-        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.mainShell, (route) => false);
-        return;
-      }
-
-      // Email OTP flow
-      await _authService.sendEmailOtp(email: identifier);
+      await _authService.sendEmailOtp(email: email);
       if (!mounted) return;
 
       setState(() {
@@ -61,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification code sent to $identifier. Please check your inbox.'),
+          content: Text('Verification code sent to $email. Please check your inbox.'),
           backgroundColor: AppColors.primary,
           duration: const Duration(seconds: 4),
         ),
@@ -78,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleVerifyAndLogin() async {
+  Future<void> _handleVerifyAndProceed() async {
     final otp = _otpController.text.trim();
     if (otp.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,43 +81,33 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final identifier = _identifierController.text.trim();
-      final res = await _authService.verifyEmailOtp(
-        email: identifier,
+      final email = _emailController.text.trim();
+      final name = _nameController.text.trim();
+      final phone = _phoneController.text.trim();
+
+      await _authService.verifyEmailOtp(
+        email: email,
         otp: otp,
+        name: name,
+        phone: phone,
       );
 
       if (!mounted) return;
 
-      final userName = res['user']?['name'] ?? 'User';
-      final token = res['token'] as String?;
-
-      // Auto-grant consent defaults if needed
-      if (token != null && token.isNotEmpty) {
-        try {
-          http.post(
-            Uri.parse('${ApiConfig.baseUrl}/consent'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'upiConsent': true,
-              'billStorageConsent': true,
-              'aiUsageConsent': true,
-            }),
-          );
-        } catch (_) {}
-      }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Welcome back, $userName!'),
+          content: Text('Welcome to FinTrack, $name! Let’s set up your finances.'),
           backgroundColor: AppColors.green,
         ),
       );
 
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.mainShell, (route) => false);
+      // Advance directly to Step 1: Financial Setup
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.financialSetup,
+        (route) => false,
+        arguments: {'isFromSignup': true, 'name': name},
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -163,13 +144,32 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Logo
+              // Brand Logo
               const FinTrackLogo(size: 38, fontSize: 22),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
+
+              // Step Indicator Pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _otpSent ? 'STEP 2 OF 3 • VERIFY EMAIL' : 'STEP 1 OF 3 • CREATE ACCOUNT',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // Title
               Text(
-                _otpSent ? 'Verification Code' : 'Welcome Back',
+                _otpSent ? 'Enter 6-Digit Code' : 'Join FinTrack AI',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 28,
@@ -182,132 +182,86 @@ class _LoginScreenState extends State<LoginScreen> {
               // Subtitle
               Text(
                 _otpSent
-                    ? 'Enter the 6-digit code sent to ${_identifierController.text}'
-                    : 'Sign in to access your expenses, claims, and AI copilot.',
+                    ? 'We’ve emailed a one-time verification code to ${_emailController.text}. Enter it below to activate your account.'
+                    : 'Create your account to start auto-tracking UPI spends, claiming reimbursements, and splitting expenses effortlessly.',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
                   height: 1.45,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
               if (!_otpSent) ...[
-                // Mode Toggle: Email vs Phone
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _isPhoneMode = false),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: !_isPhoneMode ? AppColors.surface : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: !_isPhoneMode
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Email Address',
-                                style: TextStyle(
-                                  color: !_isPhoneMode ? AppColors.primary : AppColors.textSecondary,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _isPhoneMode = true),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _isPhoneMode ? AppColors.surface : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: _isPhoneMode
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Phone Number',
-                                style: TextStyle(
-                                  color: _isPhoneMode ? AppColors.primary : AppColors.textSecondary,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Credentials Form
+                // Signup Form
                 Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Identifier field
-                      _buildFieldLabel(_isPhoneMode ? 'MOBILE NUMBER' : 'EMAIL ADDRESS'),
+                      // Full Name
+                      _buildFieldLabel('FULL NAME'),
                       TextFormField(
-                        controller: _identifierController,
-                        keyboardType: _isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
+                        controller: _nameController,
+                        textCapitalization: TextCapitalization.words,
                         style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                        decoration: InputDecoration(
-                          hintText: _isPhoneMode ? '9876543210' : 'samarth@example.com',
-                          prefixIcon: _isPhoneMode
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                  child: Text(
-                                    '+91',
-                                    style: TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                )
-                              : const Icon(Icons.email_outlined, color: AppColors.textMuted),
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. Samarth Sharma',
+                          prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your ${_isPhoneMode ? "phone number" : "email"}';
+                            return 'Please enter your full name';
                           }
-                          if (!_isPhoneMode && (!value.contains('@') || !value.contains('.'))) {
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Email Address
+                      _buildFieldLabel('EMAIL ADDRESS'),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                        decoration: const InputDecoration(
+                          hintText: 'samarth@example.com',
+                          prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted),
+                        ),
+                        validator: (value) {
+                          if (value == null || !value.contains('@') || !value.contains('.')) {
                             return 'Please enter a valid email address';
                           }
-                          if (_isPhoneMode && value.trim().length != 10) {
-                            return 'Please enter a valid 10-digit number';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Phone Number
+                      _buildFieldLabel('PHONE NUMBER (10 DIGITS)'),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                        decoration: const InputDecoration(
+                          hintText: '9876543210',
+                          counterText: '',
+                          prefixIcon: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            child: Text(
+                              '+91',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().length != 10) {
+                            return 'Please enter a valid 10-digit mobile number';
                           }
                           return null;
                         },
@@ -315,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 18),
 
                       // Passcode / Password
-                      _buildFieldLabel('PASSCODE / PASSWORD'),
+                      _buildFieldLabel('SECURITY PASSCODE'),
                       TextFormField(
                         controller: _passcodeController,
                         obscureText: _obscurePasscode,
@@ -340,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.trim().length < 4) {
-                            return 'Enter your passcode';
+                            return 'Passcode must be at least 4 digits';
                           }
                           return null;
                         },
@@ -360,22 +314,22 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          onPressed: _isLoading ? null : _handleRequestOtp,
+                          onPressed: _isLoading ? null : _handleSendOtp,
                           child: _isLoading
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                                 )
-                              : Row(
+                              : const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      _isPhoneMode ? 'Sign In Directly' : 'Send One-Time Code',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                      'Verify with Email OTP',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                                     ),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.arrow_forward_rounded, size: 18),
+                                    SizedBox(width: 8),
+                                    Icon(Icons.arrow_forward_rounded, size: 18),
                                   ],
                                 ),
                         ),
@@ -384,7 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ] else ...[
-                // OTP Entry Card
+                // OTP Verification View
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -394,10 +348,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.security_rounded, color: AppColors.primary, size: 44),
+                      const Icon(Icons.mark_email_read_rounded, color: AppColors.primary, size: 44),
                       const SizedBox(height: 12),
                       const Text(
-                        'One-Time Code',
+                        'Verification Code',
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 16,
@@ -406,11 +360,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Sent to ${_identifierController.text}',
+                        'Sent to ${_emailController.text}',
                         style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                       ),
                       const SizedBox(height: 20),
 
+                      // 6-digit Code Input
                       TextField(
                         controller: _otpController,
                         keyboardType: TextInputType.number,
@@ -440,14 +395,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontSize: 13,
                           ),
                         ),
-                        onPressed: _isLoading ? null : _handleRequestOtp,
+                        onPressed: _isLoading ? null : _handleSendOtp,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 28),
 
-                // Confirm Login
+                // Verify Button
                 SizedBox(
                   width: double.infinity,
                   height: 54,
@@ -460,7 +415,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    onPressed: _isLoading ? null : _handleVerifyAndLogin,
+                    onPressed: _isLoading ? null : _handleVerifyAndProceed,
                     child: _isLoading
                         ? const SizedBox(
                             width: 22,
@@ -468,7 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                           )
                         : const Text(
-                            'Verify & Sign In',
+                            'Verify & Complete Profile',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                           ),
                   ),
@@ -477,21 +432,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
-              // Switch to Sign Up
+              // Switch to Login
               Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      'Don’t have an account yet?',
+                      'Already have an account?',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacementNamed(context, AppRoutes.signup);
+                        Navigator.pushReplacementNamed(context, AppRoutes.login);
                       },
                       child: const Text(
-                        'Create One',
+                        'Sign In',
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w800,

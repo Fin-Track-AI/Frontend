@@ -5,7 +5,8 @@ import '../../services/user_financial_service.dart';
 
 class FinancialSetupScreen extends StatefulWidget {
   final bool isModalEdit;
-  const FinancialSetupScreen({super.key, this.isModalEdit = false});
+  final bool isFromSignup;
+  const FinancialSetupScreen({super.key, this.isModalEdit = false, this.isFromSignup = false});
 
   @override
   State<FinancialSetupScreen> createState() => _FinancialSetupScreenState();
@@ -76,13 +77,18 @@ class _FinancialSetupScreenState extends State<FinancialSetupScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Financial setup saved! Welcome to your fresh tracker.'),
+        content: Text('Financial setup saved!'),
         backgroundColor: AppColors.green,
       ),
     );
 
+    final routeArgs = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final isSignup = widget.isFromSignup || (routeArgs?['isFromSignup'] == true);
+
     if (widget.isModalEdit) {
       Navigator.pop(context, true);
+    } else if (isSignup) {
+      Navigator.pushReplacementNamed(context, AppRoutes.companySelection);
     } else {
       Navigator.pushNamedAndRemoveUntil(context, AppRoutes.mainShell, (route) => false);
     }
@@ -90,11 +96,16 @@ class _FinancialSetupScreenState extends State<FinancialSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final routeArgs = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final isSignup = widget.isFromSignup || (routeArgs?['isFromSignup'] == true);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          widget.isModalEdit ? 'Edit Financial Setup' : 'Fresh Account Setup',
+          widget.isModalEdit
+              ? 'Edit Financial Setup'
+              : (isSignup ? 'Step 2: Financial Setup' : 'Fresh Account Setup'),
           style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800, fontSize: 18),
         ),
         backgroundColor: AppColors.surface,
@@ -116,7 +127,7 @@ class _FinancialSetupScreenState extends State<FinancialSetupScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
