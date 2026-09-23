@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../services/session_service.dart';
 
 enum SplitType {
   equal,
@@ -10,7 +11,7 @@ class GroupMember {
   final String id;
   final String name;
   final String avatarUrl;
-  final bool isCurrentUser;
+  final bool _rawIsCurrentUser;
   final String phone;
   final String status;
 
@@ -18,18 +19,44 @@ class GroupMember {
     required this.id,
     required this.name,
     this.avatarUrl = '',
-    this.isCurrentUser = false,
+    bool isCurrentUser = false,
     this.phone = '',
     this.status = 'ACCEPTED',
     String? phoneNumber,
     bool? isSelf,
   }) : this._rawPhone = phoneNumber ?? phone,
+       this._rawIsCurrentUser = isCurrentUser,
        this._rawIsSelf = isSelf ?? isCurrentUser;
 
   final String _rawPhone;
   final bool _rawIsSelf;
 
-  bool get isSelf => _rawIsSelf;
+  bool get isSelf {
+    final session = SessionService();
+    final currentUserId = session.userId;
+    final currentUserPhone = session.userPhone.replaceAll(RegExp(r'\D'), '');
+    final last10 = currentUserPhone.length >= 10
+        ? currentUserPhone.substring(currentUserPhone.length - 10)
+        : currentUserPhone;
+
+    // If an active session exists, dynamically detect self by ID or phone
+    if (session.isLoggedIn || currentUserId.isNotEmpty || last10.isNotEmpty) {
+      if (currentUserId.isNotEmpty && currentUserId != 'usr_me' && id == currentUserId) {
+        return true;
+      }
+      if (last10.isNotEmpty) {
+        final mDigits = phoneNumber.replaceAll(RegExp(r'\D'), '');
+        if (mDigits.isNotEmpty && mDigits.endsWith(last10)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return _rawIsSelf;
+  }
+
+  bool get isCurrentUser => isSelf;
   String get phoneNumber => _rawPhone;
   bool get isPendingInvite => status == 'PENDING_INVITE';
 
@@ -48,7 +75,7 @@ class GroupMember {
         name: (json['name'] ?? 'Member') as String,
         avatarUrl: (json['avatarUrl'] as String?) ?? '',
         isCurrentUser: (json['isCurrentUser'] as bool?) ?? false,
-        phone: (json['phone'] as String?) ?? '',
+        phone: (json['phone'] ?? json['phoneNumber'] ?? '').toString(),
         status: (json['status'] as String?) ?? 'ACCEPTED',
       );
 
@@ -98,9 +125,9 @@ class SplitAllocation {
       };
 
   factory SplitAllocation.fromJson(Map<String, dynamic> json) => SplitAllocation(
-        memberId: json['memberId'] as String,
-        memberName: json['memberName'] as String,
-        amount: (json['amount'] as num).toDouble(),
+        memberId: (json['memberId'] ?? '').toString(),
+        memberName: (json['memberName'] ?? '').toString(),
+        amount: ((json['amount'] ?? json['shareAmount'] ?? 0.0) as num).toDouble(),
         percentage: ((json['percentage'] ?? 0.0) as num).toDouble(),
         items: (json['items'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       );
@@ -130,9 +157,9 @@ class ItemizedEntry {
       };
 
   factory ItemizedEntry.fromJson(Map<String, dynamic> json) => ItemizedEntry(
-        id: json['id'] as String,
-        itemName: (json['itemName'] ?? json['name']) as String,
-        price: (json['price'] as num).toDouble(),
+        id: (json['id'] ?? json['_id'] ?? '').toString(),
+        itemName: (json['itemName'] ?? json['name'] ?? '').toString(),
+        price: ((json['price'] ?? 0.0) as num).toDouble(),
         assignedMemberIds: (json['assignedMemberIds'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       );
 }
@@ -185,17 +212,23 @@ class GroupExpense {
       };
 
   factory GroupExpense.fromJson(Map<String, dynamic> json) => GroupExpense(
-        id: json['id'] as String,
-        groupId: json['groupId'] as String,
-        title: json['title'] as String,
-        totalAmount: (json['totalAmount'] as num).toDouble(),
-        paidByMemberId: json['paidByMemberId'] as String,
-        paidByMemberName: json['paidByMemberName'] as String,
-        splitType: SplitType.values.byName(json['splitType'] as String),
-        allocations: (json['allocations'] as List<dynamic>)
-            .map((a) => SplitAllocation.fromJson(a as Map<String, dynamic>))
-            .toList(),
-        createdAt: DateTime.parse(json['createdAt'] as String),
+        id: (json['id'] ?? json['_id'] ?? '').toString(),
+        groupId: (json['groupId'] ?? '').toString(),
+        title: (json['title'] ?? '').toString(),
+        totalAmount: ((json['totalAmount'] ?? 0.0) as num).toDouble(),
+        paidByMemberId: (json['paidByMemberId'] ?? '').toString(),
+        paidByMemberName: (json['paidByMemberName'] ?? '').toString(),
+        splitType: SplitType.values.firstWhere(
+          (t) => t.name.toLowerCase() == (json['splitType'] ?? 'equal').toString().toLowerCase(),
+          orElse: () => SplitType.equal,
+        ),
+        allocations: (json['allocations'] as List<dynamic>?)
+                ?.map((a) => SplitAllocation.fromJson(a as Map<String, dynamic>))
+                .toList() ??
+            [],
+        createdAt: json['createdAt'] != null
+            ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
+            : DateTime.now(),
         category: json['category'] as String?,
         notes: json['notes'] as String?,
         itemizedEntries: (json['itemizedEntries'] as List<dynamic>?)
@@ -301,6 +334,7 @@ class SplitGroup {
   final String icon;
   final List<GroupMember> members;
   final List<GroupExpense> expenses;
+  final List<String> settledDebtKeys;
   final DateTime createdAt;
   final String createdBy;
 
@@ -310,6 +344,7 @@ class SplitGroup {
     required this.icon,
     required this.members,
     required this.expenses,
+    this.settledDebtKeys = const [],
     required this.createdAt,
     this.createdBy = '',
     String? name,
@@ -326,6 +361,7 @@ class SplitGroup {
     String? icon,
     List<GroupMember>? members,
     List<GroupExpense>? expenses,
+    List<String>? settledDebtKeys,
     DateTime? createdAt,
     String? createdBy,
   }) {
@@ -335,6 +371,7 @@ class SplitGroup {
       icon: icon ?? this.icon,
       members: members ?? this.members,
       expenses: expenses ?? this.expenses,
+      settledDebtKeys: settledDebtKeys ?? this.settledDebtKeys,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
     );
@@ -346,6 +383,7 @@ class SplitGroup {
         'icon': icon,
         'members': members.map((m) => m.toJson()).toList(),
         'expenses': expenses.map((e) => e.toJson()).toList(),
+        'settledDebtKeys': settledDebtKeys,
         'createdAt': createdAt.toIso8601String(),
         'createdBy': createdBy,
       };
@@ -360,6 +398,10 @@ class SplitGroup {
             [],
         expenses: (json['expenses'] as List<dynamic>?)
                 ?.map((e) => GroupExpense.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        settledDebtKeys: (json['settledDebtKeys'] as List<dynamic>?)
+                ?.map((k) => k.toString())
                 .toList() ??
             [],
         createdAt: json['createdAt'] != null

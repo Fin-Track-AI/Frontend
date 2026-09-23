@@ -7,6 +7,7 @@ class NotificationCenterModal extends StatelessWidget {
   const NotificationCenterModal({super.key});
 
   static Future<void> show(BuildContext context) {
+    NotificationService().syncWithBackend();
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -181,6 +182,10 @@ class _NotificationTile extends StatelessWidget {
         return Icons.assignment_turned_in_rounded;
       case NotificationType.system:
         return Icons.notifications_active_rounded;
+      case NotificationType.splitReminder:
+        return Icons.mail_outline_rounded;
+      case NotificationType.settlement:
+        return Icons.check_circle_outline_rounded;
     }
   }
 
@@ -194,6 +199,10 @@ class _NotificationTile extends StatelessWidget {
         return AppColors.green;
       case NotificationType.system:
         return AppColors.textSecondary;
+      case NotificationType.splitReminder:
+        return AppColors.amber;
+      case NotificationType.settlement:
+        return AppColors.green;
     }
   }
 
