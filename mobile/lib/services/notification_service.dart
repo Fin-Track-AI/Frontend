@@ -116,7 +116,9 @@ class NotificationService extends ChangeNotifier {
   Future<void> syncWithBackend() async {
     try {
       final token = SessionService().token;
-      final uri = Uri.parse('${ApiConfig.baseUrl}/notifications');
+      final phone = SessionService().userPhone;
+      final phoneQuery = phone.isNotEmpty ? '?phone=${Uri.encodeComponent(phone)}' : '';
+      final uri = Uri.parse('${ApiConfig.baseUrl}/notifications$phoneQuery');
       final res = await http.get(
         uri,
         headers: {

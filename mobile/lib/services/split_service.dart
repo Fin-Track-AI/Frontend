@@ -118,8 +118,11 @@ class SplitService extends ChangeNotifier {
 
       final Map<String, SplitGroup> merged = {for (final g in _groups) g.id: g};
 
+      final currentPhone = currentUser.phoneNumber;
+      final phoneQuery = currentPhone.isNotEmpty ? '?phone=${Uri.encodeComponent(currentPhone)}' : '';
+
       // 1. Fetch user's joined/created groups
-      final groupsUri = Uri.parse('${ApiConfig.baseUrl}/split/groups');
+      final groupsUri = Uri.parse('${ApiConfig.baseUrl}/split/groups$phoneQuery');
       try {
         final res = await http.get(groupsUri, headers: headers).timeout(const Duration(seconds: 4));
         if (res.statusCode == 200) {
@@ -137,7 +140,7 @@ class SplitService extends ChangeNotifier {
       }
 
       // 2. Fetch pending invitations for this user
-      final invitesUri = Uri.parse('${ApiConfig.baseUrl}/split/invitations');
+      final invitesUri = Uri.parse('${ApiConfig.baseUrl}/split/invitations$phoneQuery');
       try {
         final invRes = await http.get(invitesUri, headers: headers).timeout(const Duration(seconds: 4));
         if (invRes.statusCode == 200) {
