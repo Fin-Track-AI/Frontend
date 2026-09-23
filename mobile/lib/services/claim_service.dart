@@ -102,16 +102,41 @@ class ClaimService {
 
   /// Check linked employer affiliation for current employee
   Future<Map<String, dynamic>> getMyCompany({required String authToken}) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/employer/my-company'),
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/employer/my-company'),
+        headers: {'Authorization': 'Bearer $authToken'},
+      );
+
+      final jsonResponse = jsonDecode(response.body);
+      if (response.statusCode == 200 && jsonResponse['success'] == true) {
+        final data = jsonResponse['data'] as Map<String, dynamic>;
+        // Backend returns { isLinked: bool, company: {...} }
+        // Normalize to { hasEmployer: bool, employer: {...} }
+        final isLinked = data['isLinked'] ?? data['hasEmployer'] ?? false;
+        final company = data['company'] ?? data['employer'];
+        return {
+          'hasEmployer': isLinked == true,
+          'employer': company,
+          'isLinked': isLinked == true,
+        };
+      }
+    } catch (_) {}
+    return {'hasEmployer': false, 'employer': null, 'isLinked': false};
+  }
+
+  /// Leave/unlink current employer
+  Future<bool> leaveCompany({required String authToken}) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/employer/unlink'),
       headers: {'Authorization': 'Bearer $authToken'},
     );
-
     final jsonResponse = jsonDecode(response.body);
-    if (response.statusCode == 200 && jsonResponse['success'] == true) {
-      return jsonResponse['data'];
+    if ((response.statusCode == 200 || response.statusCode == 204) &&
+        jsonResponse['success'] == true) {
+      return true;
     } else {
-      return {'hasEmployer': false, 'employer': null};
+      throw Exception(jsonResponse['message'] ?? 'Failed to leave company');
     }
   }
 }

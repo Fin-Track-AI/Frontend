@@ -5,8 +5,10 @@ import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
+import '../../services/claim_service.dart';
 import '../../services/session_service.dart';
 import '../../services/user_financial_service.dart';
+import '../onboarding/employer_link_screen.dart';
 import '../onboarding/financial_setup_screen.dart';
 import '../../widgets/fintrack_header.dart';
 import '../../widgets/ask_ai_pill.dart';
@@ -24,18 +26,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _privateAi = true;
 
   Map<String, dynamic>? _savedUser;
+  Map<String, dynamic>? _employerInfo;
+  bool _hasEmployer = false;
+  bool _isLeavingCompany = false;
   final AuthService _authService = AuthService();
+  final ClaimService _claimService = ClaimService();
 
   @override
   void initState() {
     super.initState();
     _loadUserSession();
+    _loadEmployerStatus();
   }
 
   Future<void> _loadUserSession() async {
     final user = await _authService.getSavedUser();
     if (user != null && mounted) {
       setState(() => _savedUser = user);
+    }
+  }
+
+  Future<void> _loadEmployerStatus() async {
+    final token = SessionService().token ?? '';
+    if (token.isEmpty) return;
+    try {
+      final res = await _claimService.getMyCompany(authToken: token);
+      if (mounted) {
+        setState(() {
+          _hasEmployer = res['hasEmployer'] == true;
+          _employerInfo = res['employer'] as Map<String, dynamic>?;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handleLeaveCompany() async {
+    final token = SessionService().token ?? '';
+    if (token.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Leave Company?', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800)),
+        content: Text(
+          'You will lose access to corporate reimbursements for ${_employerInfo?['employerName'] ?? 'this company'}. You can rejoin with a new invite code.',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isLeavingCompany = true);
+    try {
+      await _claimService.leaveCompany(authToken: token);
+      if (mounted) {
+        setState(() {
+          _hasEmployer = false;
+          _employerInfo = null;
+          _isLeavingCompany = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully left the company. You can join a new one via Claims.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLeavingCompany = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -249,6 +327,124 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
+                ],
+              ),
+            ),
+
+            // Employer / Corporate Account Card
+            Container(
+              padding: const EdgeInsets.all(18),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _hasEmployer ? AppColors.primary.withOpacity(0.5) : AppColors.border,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _hasEmployer ? AppColors.primaryLight : AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.business_center_rounded,
+                          color: _hasEmployer ? AppColors.primary : AppColors.textMuted,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Corporate Account',
+                              style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _hasEmployer ? 'Linked via FinTrack invite code' : 'Not linked to any employer',
+                              style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_hasEmployer)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text('Active', style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(color: AppColors.divider, height: 1),
+                  const SizedBox(height: 14),
+                  if (_hasEmployer && _employerInfo != null) ...[
+                    _buildInfoRow(Icons.apartment_rounded, 'Company', _employerInfo!['employerName'] ?? 'Unknown'),
+                    const SizedBox(height: 8),
+                    if (_employerInfo!['department'] != null)
+                      _buildInfoRow(Icons.group_work_rounded, 'Department', _employerInfo!['department']),
+                    if (_employerInfo!['department'] != null) const SizedBox(height: 8),
+                    if (_employerInfo!['reimbursementLimit'] != null)
+                      _buildInfoRow(Icons.payments_rounded, 'Monthly Limit', '₹${_employerInfo!['reimbursementLimit']}/mo'),
+                    if (_employerInfo!['reimbursementLimit'] != null) const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isLeavingCompany ? null : _handleLeaveCompany,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.red, width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: _isLeavingCompany
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.red))
+                            : const Icon(Icons.exit_to_app_rounded, color: AppColors.red, size: 16),
+                        label: Text(
+                          _isLeavingCompany ? 'Leaving...' : 'Leave Company',
+                          style: const TextStyle(color: AppColors.red, fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    const Text(
+                      'Join your organization via the Claims tab using a company invite code.',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final joined = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const EmployerLinkScreen(isStandalone: true)),
+                          );
+                          if (joined == true && mounted) _loadEmployerStatus();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.vpn_key_rounded, size: 16),
+                        label: const Text('Enter Invite Code', style: TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -609,6 +805,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(status, style: const TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w700)),
         ],
       ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w700),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
