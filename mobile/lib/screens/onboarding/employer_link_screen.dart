@@ -73,29 +73,42 @@ class _EmployerLinkScreenState extends State<EmployerLinkScreen> {
 
     try {
       final result = await _claimService.claimInviteCode(code: code, authToken: token);
+      final companyName = result['linkedEmployer']?['employerName'] ??
+          result['employer']?['companyName'] ??
+          result['employer']?['employerName'] ??
+          _verifiedInfo?['companyName'] ??
+          'your organization';
+
       setState(() {
         _isClaiming = false;
-        _successMessage = 'Successfully joined ${(result['employer']?['companyName']) ?? 'Organization'}!';
+        _successMessage = 'Successfully joined $companyName!';
+        _errorMessage = null; // clear any old error
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_successMessage!),
-          backgroundColor: Colors.green[800],
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Successfully joined $companyName!')),
+            ],
+          ),
+          backgroundColor: Colors.green[700],
+          duration: const Duration(seconds: 3),
         ),
       );
 
-      // If opened as modal from claims, pop with true; otherwise continue onboarding
-      if (widget.isStandalone || Navigator.canPop(context)) {
-        Future.delayed(const Duration(milliseconds: 600), () {
-          if (mounted) Navigator.pop(context, true);
-        });
-      } else {
-        Future.delayed(const Duration(milliseconds: 600), () {
-          if (mounted) Navigator.pushReplacementNamed(context, AppRoutes.consent);
-        });
-      }
+      // Navigate away
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        if (widget.isStandalone || Navigator.canPop(context)) {
+          Navigator.pop(context, true);
+        } else {
+          Navigator.pushReplacementNamed(context, AppRoutes.consent);
+        }
+      });
     } catch (e) {
       setState(() {
         _isClaiming = false;
@@ -272,6 +285,34 @@ class _EmployerLinkScreenState extends State<EmployerLinkScreen> {
                         child: Text(
                           _errorMessage!,
                           style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (_successMessage != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline, color: Colors.green, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _successMessage!,
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],

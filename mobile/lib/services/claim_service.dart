@@ -93,7 +93,7 @@ class ClaimService {
     );
 
     final jsonResponse = jsonDecode(response.body);
-    if (response.statusCode == 200 && jsonResponse['success'] == true) {
+    if ((response.statusCode == 200 || response.statusCode == 201) && jsonResponse['success'] == true) {
       return jsonResponse['data'];
     } else {
       throw Exception(jsonResponse['message'] ?? 'Failed to join company with code');
