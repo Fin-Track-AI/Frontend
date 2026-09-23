@@ -121,13 +121,13 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                           badgeBorder = const Color(0xFFFFEDD5);
                           badgeText = const Color(0xFFEA580C);
                         } else if (status == 'Reimbursed' || status == 'Paid') {
-                          badgeBg = const Color(0xFFEFF6FF);
-                          badgeBorder = const Color(0xFFBFDBFE);
-                          badgeText = const Color(0xFF1D4ED8);
+                          badgeBg = const Color(0xFFECFDF5);
+                          badgeBorder = const Color(0xFF10B981);
+                          badgeText = const Color(0xFF047857);
                         }
 
                         // BR-14 Timeline progress steps
-                        final steps = ['Submitted', 'In Review', 'Approved', 'Reimbursed'];
+                        final steps = ['Submitted', 'In Review', 'Approved', 'Paid'];
                         final currentStepIdx = (status == 'Reimbursed' || status == 'Paid')
                             ? 3
                             : (status == 'Approved')

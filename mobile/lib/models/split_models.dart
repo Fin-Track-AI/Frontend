@@ -12,6 +12,7 @@ class GroupMember {
   final String avatarUrl;
   final bool isCurrentUser;
   final String phone;
+  final String status;
 
   const GroupMember({
     required this.id,
@@ -19,6 +20,7 @@ class GroupMember {
     this.avatarUrl = '',
     this.isCurrentUser = false,
     this.phone = '',
+    this.status = 'ACCEPTED',
     String? phoneNumber,
     bool? isSelf,
   }) : this._rawPhone = phoneNumber ?? phone,
@@ -29,21 +31,25 @@ class GroupMember {
 
   bool get isSelf => _rawIsSelf;
   String get phoneNumber => _rawPhone;
+  bool get isPendingInvite => status == 'PENDING_INVITE';
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'memberId': id,
         'name': name,
         'avatarUrl': avatarUrl,
         'isCurrentUser': isCurrentUser,
         'phone': phone,
+        'status': status,
       };
 
   factory GroupMember.fromJson(Map<String, dynamic> json) => GroupMember(
-        id: json['id'] as String,
-        name: json['name'] as String,
+        id: (json['id'] ?? json['memberId'] ?? '').toString(),
+        name: (json['name'] ?? 'Member') as String,
         avatarUrl: (json['avatarUrl'] as String?) ?? '',
         isCurrentUser: (json['isCurrentUser'] as bool?) ?? false,
         phone: (json['phone'] as String?) ?? '',
+        status: (json['status'] as String?) ?? 'ACCEPTED',
       );
 
   GroupMember copyWith({
@@ -52,6 +58,7 @@ class GroupMember {
     String? avatarUrl,
     bool? isCurrentUser,
     String? phone,
+    String? status,
   }) {
     return GroupMember(
       id: id ?? this.id,
@@ -59,6 +66,7 @@ class GroupMember {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       isCurrentUser: isCurrentUser ?? this.isCurrentUser,
       phone: phone ?? this.phone,
+      status: status ?? this.status,
     );
   }
 }
@@ -294,6 +302,7 @@ class SplitGroup {
   final List<GroupMember> members;
   final List<GroupExpense> expenses;
   final DateTime createdAt;
+  final String createdBy;
 
   const SplitGroup({
     required this.id,
@@ -302,6 +311,7 @@ class SplitGroup {
     required this.members,
     required this.expenses,
     required this.createdAt,
+    this.createdBy = '',
     String? name,
   }) : this._rawName = name ?? title;
 
@@ -317,6 +327,7 @@ class SplitGroup {
     List<GroupMember>? members,
     List<GroupExpense>? expenses,
     DateTime? createdAt,
+    String? createdBy,
   }) {
     return SplitGroup(
       id: id ?? this.id,
@@ -325,6 +336,7 @@ class SplitGroup {
       members: members ?? this.members,
       expenses: expenses ?? this.expenses,
       createdAt: createdAt ?? this.createdAt,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 
@@ -335,19 +347,24 @@ class SplitGroup {
         'members': members.map((m) => m.toJson()).toList(),
         'expenses': expenses.map((e) => e.toJson()).toList(),
         'createdAt': createdAt.toIso8601String(),
+        'createdBy': createdBy,
       };
 
   factory SplitGroup.fromJson(Map<String, dynamic> json) => SplitGroup(
-        id: json['id'] as String,
-        title: (json['title'] ?? json['name']) as String,
-        icon: json['icon'] as String,
-        members: (json['members'] as List<dynamic>)
-            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
-            .toList(),
+        id: (json['id'] ?? json['_id'] ?? '').toString(),
+        title: (json['title'] ?? json['name'] ?? 'Split Group') as String,
+        icon: (json['icon'] as String?) ?? '👥',
+        members: (json['members'] as List<dynamic>?)
+                ?.map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+                .toList() ??
+            [],
         expenses: (json['expenses'] as List<dynamic>?)
                 ?.map((e) => GroupExpense.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
-        createdAt: DateTime.parse(json['createdAt'] as String),
+        createdAt: json['createdAt'] != null
+            ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        createdBy: (json['createdBy'] as String?) ?? '',
       );
 }

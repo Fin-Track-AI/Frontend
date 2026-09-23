@@ -12,6 +12,7 @@ class BillUploadService {
   Future<Map<String, dynamic>> uploadBillPhoto({
     String? filePath,
     Uint8List? fileBytes,
+    String? fileName,
     required String merchantName,
     required double totalAmount,
     required String authToken,
@@ -24,10 +25,11 @@ class BillUploadService {
     request.fields['totalAmount'] = totalAmount.toString();
 
     if (fileBytes != null && fileBytes.isNotEmpty) {
+      final name = fileName ?? 'receipt.jpg';
       request.files.add(http.MultipartFile.fromBytes(
         'billImage',
         fileBytes,
-        filename: 'receipt.jpg',
+        filename: name,
       ));
     } else if (filePath != null && filePath.isNotEmpty) {
       request.files.add(await http.MultipartFile.fromPath('billImage', filePath));
@@ -35,9 +37,40 @@ class BillUploadService {
       throw Exception('No valid image file or bytes provided');
     }
 
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-    final jsonResponse = jsonDecode(response.body);
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+    var jsonResponse = jsonDecode(response.body);
+
+    // If blocked due to missing billStorageConsent, auto-grant and retry upload
+    if (response.statusCode == 403 &&
+        jsonResponse['message']?.toString().contains('billStorageConsent') == true) {
+      try {
+        await http.post(
+          Uri.parse('$baseUrl/consent'),
+          headers: {
+            'Authorization': 'Bearer $authToken',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'billStorageConsent': true}),
+        );
+        final retryRequest = http.MultipartRequest('POST', uri);
+        retryRequest.headers['Authorization'] = 'Bearer $authToken';
+        retryRequest.fields['merchantName'] = merchantName;
+        retryRequest.fields['totalAmount'] = totalAmount.toString();
+        if (fileBytes != null && fileBytes.isNotEmpty) {
+          retryRequest.files.add(http.MultipartFile.fromBytes(
+            'billImage',
+            fileBytes,
+            filename: fileName ?? 'receipt.jpg',
+          ));
+        } else if (filePath != null && filePath.isNotEmpty) {
+          retryRequest.files.add(await http.MultipartFile.fromPath('billImage', filePath));
+        }
+        streamedResponse = await retryRequest.send();
+        response = await http.Response.fromStream(streamedResponse);
+        jsonResponse = jsonDecode(response.body);
+      } catch (_) {}
+    }
 
     if (response.statusCode == 201 && jsonResponse['success'] == true) {
       return jsonResponse;

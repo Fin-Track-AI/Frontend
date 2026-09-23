@@ -35,7 +35,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         if (SessionService().isLoggedIn) {
           Navigator.pushReplacementNamed(context, AppRoutes.mainShell);
         } else {
-          Navigator.pushReplacementNamed(context, AppRoutes.login);
+          Navigator.pushReplacementNamed(context, AppRoutes.welcome);
         }
       }
     });
@@ -56,15 +56,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           opacity: _fadeAnimation,
           child: ScaleTransition(
             scale: _scaleAnimation,
-            child: Column(
+            child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const FinTrackLogo(
+                FinTrackLogo(
                   size: 84,
                   showText: false,
                 ),
-                const SizedBox(height: 24),
-                const Text(
+                SizedBox(height: 24),
+                Text(
                   'FinTrack',
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -73,8 +73,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     letterSpacing: -1,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                SizedBox(height: 8),
+                Text(
                   'Smart Insights & Expense Intelligence',
                   style: TextStyle(
                     color: AppColors.textSecondary,
@@ -82,8 +82,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 48),
-                const SizedBox(
+                SizedBox(height: 48),
+                SizedBox(
                   width: 28,
                   height: 28,
                   child: CircularProgressIndicator(

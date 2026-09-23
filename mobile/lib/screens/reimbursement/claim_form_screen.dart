@@ -9,8 +9,9 @@ import 'my_claims_screen.dart';
 
 class ClaimFormScreen extends StatefulWidget {
   final String authToken;
+  final Map<String, dynamic>? companyInfo;
 
-  const ClaimFormScreen({Key? key, required this.authToken}) : super(key: key);
+  const ClaimFormScreen({Key? key, required this.authToken, this.companyInfo}) : super(key: key);
 
   @override
   _ClaimFormScreenState createState() => _ClaimFormScreenState();
@@ -82,43 +83,80 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
         _errorMessage = null;
       });
 
-      // 1. Upload Bill to Secure Storage
-      final uploadRes = await _billService.uploadBillPhoto(
-        filePath: _imagePath,
-        fileBytes: _imageBytes,
-        merchantName: _titleController.text.isNotEmpty ? _titleController.text : 'Scanned Expense',
-        totalAmount: double.tryParse(_amountController.text) ?? 0.0,
-        authToken: widget.authToken,
-      );
+      // 1. Run OCR Extraction first to parse receipt & auto-fill fields
+      Map<String, dynamic> ocrData = {};
+      try {
+        ocrData = await _ocrService.parseReceiptImage(
+          filePath: _imagePath,
+          fileBytes: _imageBytes,
+          fileName: pickedFile.name,
+          authToken: widget.authToken,
+        );
 
-      _attachedBillId = uploadRes['data']['id'];
+        if (ocrData['merchant'] != null && ocrData['merchant'].toString().isNotEmpty) {
+          _titleController.text = ocrData['merchant'].toString();
+        }
+        if (ocrData['amount'] != null) {
+          _amountController.text = (ocrData['amount'] ?? 0.0).toString();
+        }
+        if (ocrData['date'] != null && ocrData['date'].toString().isNotEmpty) {
+          _dateController.text = ocrData['date'].toString();
+        }
+        if (ocrData['tax'] != null) {
+          _taxController.text = (ocrData['tax'] ?? 0.0).toString();
+        }
 
-      // 2. Run OCR Extraction
-      final ocrData = await _ocrService.parseReceiptImage(
-        filePath: _imagePath,
-        fileBytes: _imageBytes,
-        authToken: widget.authToken,
-      );
+        final ocrCat = ocrData['category']?.toString() ?? '';
+        if (ocrCat.contains('Food') || ocrCat.contains('Dining') || ocrCat.contains('Groceries')) {
+          _selectedCategory = 'Meals & Dining';
+        } else if (ocrCat.contains('Travel') || ocrCat.contains('Commute')) {
+          _selectedCategory = 'Travel & Commute';
+        } else if (ocrCat.contains('Office') || ocrCat.contains('Shopping')) {
+          _selectedCategory = 'Office Supplies';
+        } else if (ocrCat.contains('Health') || ocrCat.contains('Medical')) {
+          _selectedCategory = 'Medical & Health';
+        } else if (_categories.contains(ocrCat)) {
+          _selectedCategory = ocrCat;
+        }
+
+        _isLowConfidence = ocrData['isLowConfidence'] ?? false;
+      } catch (ocrErr) {
+        debugPrint('OCR parsing note: $ocrErr');
+      }
+
+      // 2. Upload Bill to Secure Storage
+      String? uploadErrorText;
+      try {
+        final uploadRes = await _billService.uploadBillPhoto(
+          filePath: _imagePath,
+          fileBytes: _imageBytes,
+          fileName: pickedFile.name,
+          merchantName: _titleController.text.isNotEmpty ? _titleController.text : 'Scanned Expense',
+          totalAmount: double.tryParse(_amountController.text) ?? 0.0,
+          authToken: widget.authToken,
+        );
+        _attachedBillId = uploadRes['data']?['id'] ?? uploadRes['data']?['billId'];
+      } catch (uploadErr) {
+        uploadErrorText = uploadErr.toString().replaceAll('Exception: ', '');
+        debugPrint('Bill upload note: $uploadErr');
+      }
 
       setState(() {
         _isProcessingOcr = false;
-        _titleController.text = ocrData['merchant'] ?? 'Expense Claim';
-        _amountController.text = (ocrData['amount'] ?? 0.0).toString();
-        _dateController.text = ocrData['date'] ?? '';
-        _taxController.text = (ocrData['tax'] ?? 0.0).toString();
-
-        _isLowConfidence = ocrData['isLowConfidence'] ?? false;
-
-        if (_isLowConfidence) {
+        if (uploadErrorText != null) {
+          _errorMessage = 'Bill upload note: $uploadErrorText';
+        } else if (_isLowConfidence) {
           _statusMessage = '⚠️ Low OCR confidence. Please review pre-filled values.';
-        } else {
+        } else if (ocrData.isNotEmpty) {
           _statusMessage = '✨ Bill uploaded & fields auto-extracted via OCR!';
+        } else {
+          _statusMessage = '📸 Receipt attached. Please verify expense details below.';
         }
       });
     } catch (e) {
       setState(() {
         _isProcessingOcr = false;
-        _errorMessage = 'OCR / Attachment failed: ${e.toString().replaceAll('Exception: ', '')}';
+        _errorMessage = 'Attachment failed: ${e.toString().replaceAll('Exception: ', '')}';
       });
     }
   }
@@ -141,7 +179,7 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
       setState(() => _errorMessage = 'Category, Project, and Cost-Center selection are mandatory.');
       return;
     }
-    if (_attachedBillId == null) {
+    if (_imageBytes == null) {
       setState(() => _errorMessage = 'Please attach a bill/receipt photo before submitting.');
       return;
     }
@@ -152,13 +190,34 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
     });
 
     try {
+      // Ensure bill is uploaded if bytes exist but bill ID not yet set
+      if (_attachedBillId == null && _imageBytes != null) {
+        try {
+          final uploadRes = await _billService.uploadBillPhoto(
+            filePath: _imagePath,
+            fileBytes: _imageBytes,
+            fileName: 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            merchantName: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'Receipt',
+            totalAmount: amount,
+            authToken: widget.authToken,
+          );
+          _attachedBillId = uploadRes['data']?['id'] ?? uploadRes['data']?['billId'];
+        } catch (uploadErr) {
+          setState(() {
+            _isSubmitting = false;
+            _errorMessage = 'Bill upload required: ${uploadErr.toString().replaceAll('Exception: ', '')}';
+          });
+          return;
+        }
+      }
+
       final claimRes = await _claimService.submitClaim(
         title: _titleController.text.trim(),
         amount: amount,
         category: _selectedCategory!,
         project: _selectedProject!,
         costCenter: _selectedCostCenter!,
-        billId: _attachedBillId!,
+        billId: _attachedBillId ?? 'manual_entry',
         authToken: widget.authToken,
       );
 
@@ -218,6 +277,30 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.companyInfo != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.business_center_rounded, color: AppColors.primary, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Submitting to ${widget.companyInfo!['employerName'] ?? widget.companyInfo!['companyName'] ?? 'Your Employer'} (${widget.companyInfo!['department'] ?? 'Corporate'})',
+                        style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 16),
+                  ],
+                ),
+              ),
+            ],
             // Reimbursable Tag Toggle
             Card(
               elevation: 0,

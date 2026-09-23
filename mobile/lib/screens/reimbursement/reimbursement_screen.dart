@@ -5,6 +5,7 @@ import '../../services/session_service.dart';
 import '../../services/claim_service.dart';
 import 'claim_form_screen.dart';
 import 'my_claims_screen.dart';
+import '../onboarding/employer_link_screen.dart';
 
 class ReimbursementScreen extends StatefulWidget {
   const ReimbursementScreen({super.key});
@@ -19,6 +20,9 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
 
   bool _isLoading = true;
   List<dynamic> _claims = [];
+  Map<String, dynamic>? _companyInfo;
+  bool _hasEmployer = false;
+
   Map<String, double> _metrics = {
     'pending': 0,
     'inReview': 0,
@@ -35,6 +39,18 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
   Future<void> _loadClaims() async {
     if (_authToken.isEmpty) return;
     try {
+      // 1. Fetch employer link status
+      try {
+        final companyRes = await ClaimService().getMyCompany(authToken: _authToken);
+        if (mounted) {
+          setState(() {
+            _hasEmployer = companyRes['hasEmployer'] == true;
+            _companyInfo = companyRes['employer'];
+          });
+        }
+      } catch (_) {}
+
+      // 2. Fetch user's claims
       final claims = await ClaimService().getMyClaims(authToken: _authToken);
       double pending = 0, inReview = 0, approved = 0, rejected = 0;
       for (final c in claims) {
@@ -75,10 +91,62 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
   }
 
   void _openClaimForm() {
+    if (!_hasEmployer) {
+      _promptLinkEmployer();
+      return;
+    }
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ClaimFormScreen(authToken: _authToken)),
+      MaterialPageRoute(
+        builder: (context) => ClaimFormScreen(
+          authToken: _authToken,
+          companyInfo: _companyInfo,
+        ),
+      ),
     ).then((_) => _loadClaims());
+  }
+
+  void _promptLinkEmployer() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Row(
+          children: const [
+            Icon(Icons.domain_verification, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Company Code Required', style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'You must be enrolled with your employer via an invite code to submit reimbursement claims to the company dashboard.\n\nPlease enter the unique code provided by your employer.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _openEmployerLink();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('Enter Code', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openEmployerLink() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EmployerLinkScreen(isStandalone: true)),
+    ).then((joined) {
+      _loadClaims();
+    });
   }
 
   void _openMyClaims() {
@@ -140,6 +208,103 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
               ),
             ),
             const SizedBox(height: 14),
+
+            // Company Affiliation Status Banner
+            if (_hasEmployer) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.35), width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.apartment_rounded, color: AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _companyInfo?['employerName'] ?? _companyInfo?['companyName'] ?? 'Enrolled Organization',
+                            style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800, fontSize: 14),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Dept: ${_companyInfo?['department'] ?? 'Corporate'}  •  Allowance: ₹${_companyInfo?['monthlyAllowance'] ?? _companyInfo?['reimbursementLimit'] ?? 15000}/mo',
+                            style: TextStyle(color: AppColors.primary.withOpacity(0.75), fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.check_circle, size: 12, color: AppColors.primary),
+                          SizedBox(width: 4),
+                          Text('Enrolled', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E1C0C),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFF97316)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.info_outline, color: Color(0xFFF97316), size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'NOT LINKED TO AN EMPLOYER',
+                          style: TextStyle(color: Color(0xFFF97316), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'You must join your organization with an invite code from your employer before you can submit claims.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      onPressed: _openEmployerLink,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF97316),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        minimumSize: const Size(0, 36),
+                      ),
+                      icon: const Icon(Icons.key_rounded, size: 16, color: Colors.white),
+                      label: const Text('Enter Company Invite Code', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // Quick Actions Bar
             Row(
@@ -229,9 +394,6 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

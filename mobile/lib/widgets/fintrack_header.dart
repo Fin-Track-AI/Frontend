@@ -3,6 +3,8 @@ import '../core/theme/app_theme.dart';
 import '../routes/app_routes.dart';
 import '../screens/main_shell.dart';
 import '../services/session_service.dart';
+import '../services/notification_service.dart';
+import '../screens/notifications/notification_center_modal.dart';
 import 'fintrack_logo.dart';
 
 class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -80,32 +82,37 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
           icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary, size: 22),
           onPressed: onSearchTap ?? () {},
         ),
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(
-              constraints: const BoxConstraints(maxWidth: 40),
-              padding: EdgeInsets.zero,
-              icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 22),
-              onPressed: onNotificationTap ?? () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('No new unread notifications')),
-                );
-              },
-            ),
-            Positioned(
-              right: 8,
-              top: 12,
-              child: Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
+        ListenableBuilder(
+          listenable: NotificationService(),
+          builder: (context, _) {
+            final unreadCount = NotificationService().unreadCount;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  constraints: const BoxConstraints(maxWidth: 40),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 22),
+                  onPressed: onNotificationTap ?? () {
+                    NotificationCenterModal.show(context);
+                  },
                 ),
-              ),
-            ),
-          ],
+                if (unreadCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 12,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         Padding(
           padding: const EdgeInsets.only(right: 12.0, left: 4.0),
@@ -119,11 +126,26 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
                   final name = SessionService().userName;
                   final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
 
-                  if (avatarUrl.isNotEmpty) {
-                    return CircleAvatar(
-                      radius: 15,
-                      backgroundColor: AppColors.primaryLight,
-                      backgroundImage: NetworkImage(avatarUrl),
+                  if (avatarUrl.isNotEmpty && (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'))) {
+                    return ClipOval(
+                      child: Image.network(
+                        avatarUrl,
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => CircleAvatar(
+                          radius: 15,
+                          backgroundColor: AppColors.primary,
+                          child: Text(
+                            initial,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
                     );
                   }
 

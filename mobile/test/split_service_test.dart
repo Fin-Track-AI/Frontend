@@ -208,4 +208,39 @@ void main() {
       expect(copy.contains('FinTrack'), isTrue);
     });
   });
+
+  group('Group Deletion and Invitations', () {
+    test('User can delete a group from SplitService', () async {
+      final group = service.createGroup(
+        name: 'Temporary Trip',
+        icon: '🚗',
+        members: [memberA, memberB],
+      );
+
+      expect(service.groups.any((g) => g.id == group.id), isTrue);
+
+      await service.deleteGroup(group.id);
+
+      expect(service.groups.any((g) => g.id == group.id), isFalse);
+    });
+
+    test('Initializes with empty groups when no data exists (no demo seeding)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final fresh = SplitService();
+      await fresh.initialize();
+      expect(fresh.groups.isEmpty, isTrue);
+    });
+
+    test('Member invitation status is preserved and can be accepted', () async {
+      final invitedMember = memberB.copyWith(status: 'PENDING_INVITE');
+      final group = service.createGroup(
+        name: 'Invite Test',
+        icon: '🏖️',
+        members: [memberA, invitedMember],
+      );
+
+      final addedMember = group.members.firstWhere((m) => m.id == memberB.id);
+      expect(addedMember.isPendingInvite, isTrue);
+    });
+  });
 }

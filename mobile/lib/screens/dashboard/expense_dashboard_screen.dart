@@ -113,13 +113,6 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
                   ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,13 +429,6 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
               color: isAccent ? AppColors.primaryLight : AppColors.surface,
               shape: BoxShape.circle,
               border: Border.all(color: isAccent ? AppColors.primary : AppColors.border, width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Icon(icon, color: isAccent ? AppColors.primary : AppColors.textPrimary, size: 24),
           ),
