@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/config/api_config.dart';
 import '../models/split_models.dart';
+import 'notification_service.dart';
 import 'session_service.dart';
 
 class SplitService extends ChangeNotifier {
@@ -22,11 +23,20 @@ class SplitService extends ChangeNotifier {
   List<SplitGroup> get pendingInvitations {
     final currentUserId = currentUser.id;
     final currentPhone = currentUser.phoneNumber;
+    final cleanUserPhone = currentPhone.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanUserPhone.length >= 10
+        ? cleanUserPhone.substring(cleanUserPhone.length - 10)
+        : cleanUserPhone;
+
     return _groups.where((g) {
       return g.members.any((m) {
-        final matchesUser = (m.id == currentUserId && m.id != 'usr_me') ||
-            (currentPhone.isNotEmpty && m.phoneNumber.isNotEmpty && m.phoneNumber.contains(currentPhone));
-        return matchesUser && m.isPendingInvite;
+        final mDigits = m.phoneNumber.replaceAll(RegExp(r'\D'), '');
+        final phoneMatches = last10.isNotEmpty &&
+            mDigits.isNotEmpty &&
+            mDigits.endsWith(last10);
+        final idMatches = (m.id == currentUserId && currentUserId != 'usr_me') ||
+            (m.isCurrentUser && g.createdBy.isNotEmpty && g.createdBy != currentUserId);
+        return (idMatches || phoneMatches) && m.isPendingInvite;
       });
     }).toList();
   }
@@ -68,7 +78,17 @@ class SplitService extends ChangeNotifier {
         _groups = [];
       }
 
-      // Try syncing groups from backend
+      // Check pending invites locally
+      for (final inv in pendingInvitations) {
+        NotificationService().addNotification(
+          title: 'Group Invitation: ${inv.name}',
+          body: 'You have been invited to join "${inv.name}" to split expenses.',
+          type: NotificationType.invitation,
+          data: {'groupId': inv.id, 'groupName': inv.name},
+        );
+      }
+
+      // Try syncing groups & invitations from backend
       await _syncFromBackend();
     } catch (e) {
       debugPrint('Error loading split groups: $e');
@@ -91,27 +111,59 @@ class SplitService extends ChangeNotifier {
   Future<void> _syncFromBackend() async {
     try {
       final token = SessionService().token;
-      if (token == null || token.isEmpty) return;
+      final headers = {
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
 
-      final uri = Uri.parse('${ApiConfig.baseUrl}/split/groups');
-      final res = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 4));
+      final Map<String, SplitGroup> merged = {for (final g in _groups) g.id: g};
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        if (data['success'] == true && data['data'] is List) {
-          final List<dynamic> list = data['data'] as List<dynamic>;
-          if (list.isNotEmpty) {
-            _groups = list.map((g) => SplitGroup.fromJson(g as Map<String, dynamic>)).toList();
-            await _save();
+      // 1. Fetch user's joined/created groups
+      final groupsUri = Uri.parse('${ApiConfig.baseUrl}/split/groups');
+      try {
+        final res = await http.get(groupsUri, headers: headers).timeout(const Duration(seconds: 4));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          if (data['success'] == true && data['data'] is List) {
+            final List<dynamic> list = data['data'] as List<dynamic>;
+            for (final g in list) {
+              final group = SplitGroup.fromJson(g as Map<String, dynamic>);
+              merged[group.id] = group;
+            }
           }
         }
+      } catch (e) {
+        debugPrint('Backend sync /split/groups: $e');
       }
+
+      // 2. Fetch pending invitations for this user
+      final invitesUri = Uri.parse('${ApiConfig.baseUrl}/split/invitations');
+      try {
+        final invRes = await http.get(invitesUri, headers: headers).timeout(const Duration(seconds: 4));
+        if (invRes.statusCode == 200) {
+          final invData = jsonDecode(invRes.body) as Map<String, dynamic>;
+          if (invData['success'] == true && invData['data'] is List) {
+            final List<dynamic> invList = invData['data'] as List<dynamic>;
+            for (final g in invList) {
+              final group = SplitGroup.fromJson(g as Map<String, dynamic>);
+              merged[group.id] = group;
+
+              NotificationService().addNotification(
+                title: 'Group Invitation: ${group.name}',
+                body: 'You have been invited to join "${group.name}" to split expenses.',
+                type: NotificationType.invitation,
+                data: {'groupId': group.id, 'groupName': group.name},
+              );
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Backend sync /split/invitations: $e');
+      }
+
+      _groups = merged.values.toList();
+      await _save();
+      notifyListeners();
     } catch (e) {
       debugPrint('Backend sync split groups: $e');
     }
@@ -204,6 +256,9 @@ class SplitService extends ChangeNotifier {
       await _save();
       notifyListeners();
     }
+
+    // Keep notification center in sync
+    NotificationService().updateActionStatusForGroup(groupId, action);
 
     try {
       final token = SessionService().token;
@@ -522,12 +577,73 @@ class SplitService extends ChangeNotifier {
       members: finalMembers,
       expenses: [],
       createdAt: DateTime.now(),
+      createdBy: currentUser.id,
     );
 
     _groups.add(newGroup);
     _save();
     notifyListeners();
+
+    // Trigger local in-app notification for the creator
+    final invitedMembers = finalMembers.where((m) => !m.isCurrentUser && !m.isSelf).toList();
+    final invitedNames = invitedMembers.map((m) => m.name).join(', ');
+    NotificationService().addNotification(
+      title: 'Group "${newGroup.name}" Created',
+      body: invitedMembers.isNotEmpty
+          ? 'Invitations sent to $invitedNames.'
+          : 'Split group "${newGroup.name}" created.',
+      type: NotificationType.invitation,
+      data: {'groupId': newGroup.id, 'groupName': newGroup.name},
+    );
+
+    // Sync new group to backend MongoDB
+    _syncNewGroupToBackend(newGroup);
+
     return newGroup;
+  }
+
+  Future<void> _syncNewGroupToBackend(SplitGroup localGroup) async {
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/groups');
+      final res = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': localGroup.name,
+          'icon': localGroup.icon,
+          'members': localGroup.members.map((m) => {
+            'memberId': m.id,
+            'name': m.name,
+            'phone': m.phoneNumber,
+            'avatarUrl': m.avatarUrl,
+            'status': m.status,
+            'isCurrentUser': m.isCurrentUser,
+          }).toList(),
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true && data['data'] is Map) {
+          final groupData = data['data'] as Map<String, dynamic>;
+          final mongoId = groupData['_id']?.toString() ?? groupData['id']?.toString();
+          if (mongoId != null && mongoId.isNotEmpty) {
+            final idx = _groups.indexWhere((g) => g.id == localGroup.id);
+            if (idx != -1) {
+              _groups[idx] = _groups[idx].copyWith(id: mongoId);
+              await _save();
+              notifyListeners();
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Sync new group to backend error: $e');
+    }
   }
 
   GroupExpense addExpense({
@@ -571,7 +687,44 @@ class SplitService extends ChangeNotifier {
     _groups[index] = group.copyWith(expenses: updatedExpenses);
     _save();
     notifyListeners();
+
+    // Trigger local notification for added expense
+    NotificationService().addNotification(
+      title: 'Expense Added: ${expense.title}',
+      body: '₹${expense.totalAmount.toStringAsFixed(0)} added in "${group.name}".',
+      type: NotificationType.splitExpense,
+      data: {'groupId': groupId, 'expenseId': expense.id},
+    );
+
+    // Sync expense to backend
+    _syncNewExpenseToBackend(groupId, expense);
+
     return expense;
+  }
+
+  Future<void> _syncNewExpenseToBackend(String groupId, GroupExpense expense) async {
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/groups/$groupId/expenses');
+      await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': expense.title,
+          'totalAmount': expense.totalAmount,
+          'paidByMemberId': expense.paidByMemberId,
+          'splitType': expense.splitType.name,
+          'allocations': expense.allocations.map((a) => a.toJson()).toList(),
+          'category': expense.category,
+          'notes': expense.notes,
+        }),
+      ).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('Sync new expense to backend error: $e');
+    }
   }
 
   // ===========================================================================

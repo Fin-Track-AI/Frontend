@@ -30,6 +30,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
   late List<GroupMember> _members;
   bool _isSearching = false;
   String? _phoneErrorMessage;
+  String? _unregisteredPhone;
 
   @override
   void initState() {
@@ -46,11 +47,31 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
     super.dispose();
   }
 
+  void _addUnregisteredContact() {
+    if (_unregisteredPhone == null) return;
+    final phone = _unregisteredPhone!;
+    setState(() {
+      _members.add(
+        GroupMember(
+          id: 'mem_${DateTime.now().millisecondsSinceEpoch}',
+          name: 'Contact (${phone.length >= 10 ? phone.substring(phone.length - 4) : phone})',
+          phone: phone,
+          avatarUrl: '',
+          status: 'PENDING_INVITE',
+        ),
+      );
+      _phoneController.clear();
+      _unregisteredPhone = null;
+      _phoneErrorMessage = null;
+    });
+  }
+
   Future<void> _verifyAndAddMember() async {
     final rawPhone = _phoneController.text.trim();
     if (rawPhone.isEmpty) {
       setState(() {
         _phoneErrorMessage = 'Please enter a 10-digit mobile number';
+        _unregisteredPhone = null;
       });
       return;
     }
@@ -59,6 +80,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
     if (digitsOnly.length < 10) {
       setState(() {
         _phoneErrorMessage = 'Please enter a valid 10-digit mobile number';
+        _unregisteredPhone = null;
       });
       return;
     }
@@ -72,6 +94,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
       if (userDigits.endsWith(last10)) {
         setState(() {
           _phoneErrorMessage = 'You are already added as the group creator';
+          _unregisteredPhone = null;
         });
         return;
       }
@@ -86,6 +109,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
     if (alreadyAdded) {
       setState(() {
         _phoneErrorMessage = 'This person is already in the member list';
+        _unregisteredPhone = null;
       });
       return;
     }
@@ -93,6 +117,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
     setState(() {
       _isSearching = true;
       _phoneErrorMessage = null;
+      _unregisteredPhone = null;
     });
 
     final result = await SplitService().lookupUserByPhone(rawPhone);
@@ -114,12 +139,13 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
         _phoneController.clear();
         _isSearching = false;
         _phoneErrorMessage = null;
+        _unregisteredPhone = null;
       });
     } else {
       setState(() {
         _isSearching = false;
-        _phoneErrorMessage = result['message']?.toString() ??
-            'This person does not exist with FinTrack / is not available on FinTrack.';
+        _unregisteredPhone = rawPhone;
+        _phoneErrorMessage = null;
       });
     }
   }
@@ -411,7 +437,45 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                               ),
                             ],
                           ),
-                          if (_phoneErrorMessage != null) ...[
+                          if (_unregisteredPhone != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F7FF),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFBAE0FF)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.blue),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '$_unregisteredPhone is not on FinTrack yet. You can still invite them!',
+                                          style: const TextStyle(fontSize: 11, color: AppColors.blue, fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: _addUnregisteredContact,
+                                    icon: const Icon(Icons.person_add_outlined, size: 14),
+                                    label: Text('Add & Invite $_unregisteredPhone', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.blue,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else if (_phoneErrorMessage != null) ...[
                             const SizedBox(height: 10),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

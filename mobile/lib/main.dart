@@ -21,6 +21,7 @@ import 'screens/onboarding/financial_setup_screen.dart';
 import 'screens/legal/terms_privacy_screen.dart';
 import 'services/session_service.dart';
 import 'services/user_financial_service.dart';
+import 'services/notification_service.dart';
 import 'core/config/api_config.dart';
 
 void main() async {
@@ -34,6 +35,9 @@ void main() async {
 
   // Restore local financial data (salary, expenses stored on device)
   await UserFinancialService().init();
+
+  // Initialize notifications service
+  await NotificationService().init();
 
   runApp(const FinTrackApp());
 }

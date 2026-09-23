@@ -8,17 +8,42 @@ class ApiConfig {
   /// Localhost Fallback URL
   static const String localFallbackUrl = 'http://localhost:5001/api/v1';
 
+  /// Optional compile-time overrides:
+  /// --dart-define=API_BASE_URL=https://...
+  /// --dart-define=FORCE_CLOUD_RUN=true
+  static const String _envOverride = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  static const bool _forceCloudRun = bool.fromEnvironment('FORCE_CLOUD_RUN', defaultValue: false);
+
   /// Active Base URL in use (defaults to primary Cloud Run)
-  static String _activeBaseUrl = primaryBaseUrl;
+  static String _activeBaseUrl = _envOverride.isNotEmpty ? _envOverride : primaryBaseUrl;
 
   /// Getter for the active base URL
   static String get baseUrl => _activeBaseUrl;
 
+  /// Switch active base URL to deployed Cloud Run backend
+  static void useDeployedBackend() {
+    _activeBaseUrl = primaryBaseUrl;
+    debugPrint('[ApiConfig] Switched active backend to Deployed Cloud Run: $_activeBaseUrl');
+  }
+
+  /// Switch active base URL to local development backend
+  static void useLocalBackend() {
+    _activeBaseUrl = localFallbackUrl;
+    debugPrint('[ApiConfig] Switched active backend to Local: $_activeBaseUrl');
+  }
+
   /// Quick check if primary or local backend is reachable
   static Future<String> getActiveBaseUrl() async {
-    // In release APKs on real phones, always use Cloud Run (localhost does not exist on physical phones)
-    if (kReleaseMode) {
+    // If environment explicitly specified a URL
+    if (_envOverride.isNotEmpty) {
+      _activeBaseUrl = _envOverride;
+      return _activeBaseUrl;
+    }
+
+    // In release mode or if forced, always use Cloud Run
+    if (kReleaseMode || _forceCloudRun) {
       _activeBaseUrl = primaryBaseUrl;
+      debugPrint('[ApiConfig] Using Deployed Cloud Run Backend: $_activeBaseUrl');
       return _activeBaseUrl;
     }
 

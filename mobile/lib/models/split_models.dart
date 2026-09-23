@@ -35,6 +35,7 @@ class GroupMember {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'memberId': id,
         'name': name,
         'avatarUrl': avatarUrl,
         'isCurrentUser': isCurrentUser,
@@ -43,8 +44,8 @@ class GroupMember {
       };
 
   factory GroupMember.fromJson(Map<String, dynamic> json) => GroupMember(
-        id: json['id'] as String,
-        name: json['name'] as String,
+        id: (json['id'] ?? json['memberId'] ?? '').toString(),
+        name: (json['name'] ?? 'Member') as String,
         avatarUrl: (json['avatarUrl'] as String?) ?? '',
         isCurrentUser: (json['isCurrentUser'] as bool?) ?? false,
         phone: (json['phone'] as String?) ?? '',
