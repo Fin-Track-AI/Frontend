@@ -215,19 +215,19 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D2818),
+                  color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF2D6A4F)),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.35), width: 1.2),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B4332),
+                        color: AppColors.primary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.apartment_rounded, color: Color(0xFF52B788), size: 22),
+                      child: const Icon(Icons.apartment_rounded, color: AppColors.primary, size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -235,13 +235,13 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _companyInfo?['companyName'] ?? 'Enrolled Organization',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                            _companyInfo?['employerName'] ?? _companyInfo?['companyName'] ?? 'Enrolled Organization',
+                            style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800, fontSize: 14),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Dept: ${_companyInfo?['department'] ?? 'Corporate'}  •  Allowance: ₹${_companyInfo?['monthlyAllowance'] ?? 50000}/mo',
-                            style: const TextStyle(color: Color(0xFF74C69D), fontSize: 11, fontWeight: FontWeight.w600),
+                            'Dept: ${_companyInfo?['department'] ?? 'Corporate'}  •  Allowance: ₹${_companyInfo?['monthlyAllowance'] ?? _companyInfo?['reimbursementLimit'] ?? 15000}/mo',
+                            style: TextStyle(color: AppColors.primary.withOpacity(0.75), fontSize: 11, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -249,14 +249,14 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B4332),
+                        color: AppColors.primary.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         children: const [
-                          Icon(Icons.check_circle, size: 12, color: Color(0xFF52B788)),
+                          Icon(Icons.check_circle, size: 12, color: AppColors.primary),
                           SizedBox(width: 4),
-                          Text('Enrolled', style: TextStyle(color: Color(0xFF52B788), fontSize: 10, fontWeight: FontWeight.bold)),
+                          Text('Enrolled', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),

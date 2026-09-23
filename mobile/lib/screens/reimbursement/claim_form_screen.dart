@@ -175,7 +175,7 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
       setState(() => _errorMessage = 'Category, Project, and Cost-Center selection are mandatory.');
       return;
     }
-    if (_attachedBillId == null) {
+    if (_imageBytes == null) {
       setState(() => _errorMessage = 'Please attach a bill/receipt photo before submitting.');
       return;
     }
@@ -257,20 +257,21 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 margin: const EdgeInsets.only(bottom: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D2818),
+                  color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF2D6A4F)),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.4)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.business_center, color: Color(0xFF52B788), size: 18),
+                    const Icon(Icons.business_center_rounded, color: AppColors.primary, size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Submitting to ${widget.companyInfo!['companyName']} (${widget.companyInfo!['department'] ?? 'Corporate'})',
-                        style: const TextStyle(color: Color(0xFFD8F3DC), fontSize: 12, fontWeight: FontWeight.w700),
+                        'Submitting to ${widget.companyInfo!['employerName'] ?? widget.companyInfo!['companyName'] ?? 'Your Employer'} (${widget.companyInfo!['department'] ?? 'Corporate'})',
+                        style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700),
                       ),
                     ),
+                    const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 16),
                   ],
                 ),
               ),
