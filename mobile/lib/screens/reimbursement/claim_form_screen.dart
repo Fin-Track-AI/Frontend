@@ -9,8 +9,9 @@ import 'my_claims_screen.dart';
 
 class ClaimFormScreen extends StatefulWidget {
   final String authToken;
+  final Map<String, dynamic>? companyInfo;
 
-  const ClaimFormScreen({Key? key, required this.authToken}) : super(key: key);
+  const ClaimFormScreen({Key? key, required this.authToken, this.companyInfo}) : super(key: key);
 
   @override
   _ClaimFormScreenState createState() => _ClaimFormScreenState();
@@ -251,6 +252,29 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.companyInfo != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D2818),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF2D6A4F)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.business_center, color: Color(0xFF52B788), size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Submitting to ${widget.companyInfo!['companyName']} (${widget.companyInfo!['department'] ?? 'Corporate'})',
+                        style: const TextStyle(color: Color(0xFFD8F3DC), fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             // Reimbursable Tag Toggle
             Card(
               elevation: 0,

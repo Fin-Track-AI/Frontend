@@ -55,4 +55,63 @@ class ClaimService {
       throw Exception(jsonResponse['message'] ?? 'Failed to fetch claims');
     }
   }
+
+  /// Verify corporate invite code before claiming
+  Future<Map<String, dynamic>> verifyInviteCode({
+    required String code,
+    String? authToken,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/employer/invites/verify'),
+      headers: {
+        if (authToken != null && authToken.isNotEmpty) 'Authorization': 'Bearer $authToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'code': code.trim().toUpperCase()}),
+    );
+
+    final jsonResponse = jsonDecode(response.body);
+    if (response.statusCode == 200 && jsonResponse['success'] == true) {
+      return jsonResponse['data'];
+    } else {
+      throw Exception(jsonResponse['message'] ?? 'Invalid or inactive invite code');
+    }
+  }
+
+  /// Claim invite code to join the organization
+  Future<Map<String, dynamic>> claimInviteCode({
+    required String code,
+    required String authToken,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/employer/invites/claim'),
+      headers: {
+        'Authorization': 'Bearer $authToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'code': code.trim().toUpperCase()}),
+    );
+
+    final jsonResponse = jsonDecode(response.body);
+    if (response.statusCode == 200 && jsonResponse['success'] == true) {
+      return jsonResponse['data'];
+    } else {
+      throw Exception(jsonResponse['message'] ?? 'Failed to join company with code');
+    }
+  }
+
+  /// Check linked employer affiliation for current employee
+  Future<Map<String, dynamic>> getMyCompany({required String authToken}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/employer/my-company'),
+      headers: {'Authorization': 'Bearer $authToken'},
+    );
+
+    final jsonResponse = jsonDecode(response.body);
+    if (response.statusCode == 200 && jsonResponse['success'] == true) {
+      return jsonResponse['data'];
+    } else {
+      return {'hasEmployer': false, 'employer': null};
+    }
+  }
 }
