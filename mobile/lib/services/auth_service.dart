@@ -53,6 +53,22 @@ class AuthService {
       // Save user session
       await _session.saveSession(token: token, user: userData);
 
+      // Auto-grant default consents on successful login/verification
+      try {
+        await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/consent'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'upiConsent': true,
+            'billStorageConsent': true,
+            'aiUsageConsent': true,
+          }),
+        );
+      } catch (_) {}
+
       // Initialize financial service for this specific user
       final financialService = UserFinancialService();
       await financialService.init();

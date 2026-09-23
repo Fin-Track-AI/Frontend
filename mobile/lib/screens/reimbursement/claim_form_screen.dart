@@ -125,6 +125,7 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
       }
 
       // 2. Upload Bill to Secure Storage
+      String? uploadErrorText;
       try {
         final uploadRes = await _billService.uploadBillPhoto(
           filePath: _imagePath,
@@ -136,12 +137,15 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
         );
         _attachedBillId = uploadRes['data']?['id'] ?? uploadRes['data']?['billId'];
       } catch (uploadErr) {
+        uploadErrorText = uploadErr.toString().replaceAll('Exception: ', '');
         debugPrint('Bill upload note: $uploadErr');
       }
 
       setState(() {
         _isProcessingOcr = false;
-        if (_isLowConfidence) {
+        if (uploadErrorText != null) {
+          _errorMessage = 'Bill upload note: $uploadErrorText';
+        } else if (_isLowConfidence) {
           _statusMessage = '⚠️ Low OCR confidence. Please review pre-filled values.';
         } else if (ocrData.isNotEmpty) {
           _statusMessage = '✨ Bill uploaded & fields auto-extracted via OCR!';
@@ -186,13 +190,34 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
     });
 
     try {
+      // Ensure bill is uploaded if bytes exist but bill ID not yet set
+      if (_attachedBillId == null && _imageBytes != null) {
+        try {
+          final uploadRes = await _billService.uploadBillPhoto(
+            filePath: _imagePath,
+            fileBytes: _imageBytes,
+            fileName: 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            merchantName: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'Receipt',
+            totalAmount: amount,
+            authToken: widget.authToken,
+          );
+          _attachedBillId = uploadRes['data']?['id'] ?? uploadRes['data']?['billId'];
+        } catch (uploadErr) {
+          setState(() {
+            _isSubmitting = false;
+            _errorMessage = 'Bill upload required: ${uploadErr.toString().replaceAll('Exception: ', '')}';
+          });
+          return;
+        }
+      }
+
       final claimRes = await _claimService.submitClaim(
         title: _titleController.text.trim(),
         amount: amount,
         category: _selectedCategory!,
         project: _selectedProject!,
         costCenter: _selectedCostCenter!,
-        billId: _attachedBillId!,
+        billId: _attachedBillId ?? 'manual_entry',
         authToken: widget.authToken,
       );
 

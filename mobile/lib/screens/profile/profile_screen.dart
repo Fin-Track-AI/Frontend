@@ -51,6 +51,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _loadUserSession();
     _loadEmployerStatus();
+    _loadConsents();
+  }
+
+  Future<void> _loadConsents() async {
+    final token = SessionService().token ?? '';
+    if (token.isEmpty) return;
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/consent'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final consents = data['data']?['consents'];
+        if (consents != null && mounted) {
+          setState(() {
+            _smsPermission = consents['upiConsent'] == true;
+            _ocrStorage = consents['billStorageConsent'] == true;
+            _privateAi = consents['aiUsageConsent'] == true;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUserSession() async {
