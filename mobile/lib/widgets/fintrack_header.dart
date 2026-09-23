@@ -119,11 +119,26 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
                   final name = SessionService().userName;
                   final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
 
-                  if (avatarUrl.isNotEmpty) {
-                    return CircleAvatar(
-                      radius: 15,
-                      backgroundColor: AppColors.primaryLight,
-                      backgroundImage: NetworkImage(avatarUrl),
+                  if (avatarUrl.isNotEmpty && (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'))) {
+                    return ClipOval(
+                      child: Image.network(
+                        avatarUrl,
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => CircleAvatar(
+                          radius: 15,
+                          backgroundColor: AppColors.primary,
+                          child: Text(
+                            initial,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
                     );
                   }
 

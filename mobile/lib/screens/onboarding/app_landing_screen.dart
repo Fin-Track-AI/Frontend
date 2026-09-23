@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/fintrack_logo.dart';
+import '../legal/terms_privacy_screen.dart';
 
 class AppLandingScreen extends StatefulWidget {
   const AppLandingScreen({super.key});
@@ -153,7 +154,7 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
 
                 // Bottom Controls: Indicators + Buttons
                 Padding(
-                  padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 8.0, bottom: 12.0),
+                  padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 4.0, bottom: 12.0),
                   child: Column(
                     children: [
                       // Animated Dots
@@ -165,8 +166,8 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
                             duration: const Duration(milliseconds: 250),
                             curve: Curves.easeOutCubic,
                             margin: const EdgeInsets.symmetric(horizontal: 3),
-                            width: isActive ? 26 : 8,
-                            height: 7,
+                            width: isActive ? 24 : 8,
+                            height: 6,
                             decoration: BoxDecoration(
                               color: isActive ? AppColors.primary : AppColors.border,
                               borderRadius: BorderRadius.circular(4),
@@ -174,12 +175,12 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
                           );
                         }),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
                       // Primary Action: Create Account
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -208,12 +209,12 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
 
                       // Secondary Action: Sign In
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 46,
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             backgroundColor: AppColors.surface,
@@ -237,19 +238,58 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Terms Footnote
-                      const Text(
-                        'By continuing, you agree to FinTrack’s Terms of Service & Privacy Policy',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10.5,
-                          height: 1.3,
+                      // Terms Footnote (Guaranteed single line via FittedBox & calibrated font size)
+                      const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'By continuing, you agree to FinTrack’s Terms of Service & Privacy Policy',
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Read Terms & Privacy Policy Action Button (Compact & elegant)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 36,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppColors.surface,
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.border, width: 1.0),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          onPressed: () {
+                            TermsPrivacyScreen.show(context);
+                          },
+                          icon: const Icon(Icons.description_outlined, size: 14, color: AppColors.primary),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Read Terms of Service and Privacy Policy',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
+
+
               ],
             ),
           ),
@@ -279,13 +319,6 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,13 +533,6 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -640,13 +666,6 @@ class _AppLandingScreenState extends State<AppLandingScreen> {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

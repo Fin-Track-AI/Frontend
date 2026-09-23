@@ -22,4 +22,6 @@ class AppRoutes {
   static const String securityConsent = '/profile/security-consent';
   static const String budgetsAlerts = '/expenses/budgets-alerts';
   static const String peerBenchmarking = '/expenses/peer-benchmarking';
+  static const String termsPrivacy = '/legal/terms-privacy';
 }
+

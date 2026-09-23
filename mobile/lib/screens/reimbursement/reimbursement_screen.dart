@@ -229,9 +229,6 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

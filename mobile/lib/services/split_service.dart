@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/config/api_config.dart';
 import '../models/split_models.dart';
 import 'session_service.dart';
 
@@ -17,16 +19,30 @@ class SplitService extends ChangeNotifier {
 
   List<SplitGroup> get groups => List.unmodifiable(_groups);
 
+  List<SplitGroup> get pendingInvitations {
+    final currentUserId = currentUser.id;
+    final currentPhone = currentUser.phoneNumber;
+    return _groups.where((g) {
+      return g.members.any((m) {
+        final matchesUser = (m.id == currentUserId && m.id != 'usr_me') ||
+            (currentPhone.isNotEmpty && m.phoneNumber.isNotEmpty && m.phoneNumber.contains(currentPhone));
+        return matchesUser && m.isPendingInvite;
+      });
+    }).toList();
+  }
+
   GroupMember get currentUser {
-    final currentUserName = SessionService().userName.isNotEmpty
-        ? SessionService().userName.split(' ').first
-        : 'Ritesh';
+    final session = SessionService();
+    final currentUserName = session.userName.isNotEmpty
+        ? session.userName.split(' ').first
+        : 'You';
     return GroupMember(
-      id: 'usr_me',
+      id: session.userId.isNotEmpty ? session.userId : 'usr_me',
       name: currentUserName,
       isCurrentUser: true,
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-      phone: '+91 98765 43210',
+      avatarUrl: session.avatarUrl,
+      phone: session.userPhone,
+      status: 'ACCEPTED',
     );
   }
 
@@ -43,153 +59,22 @@ class SplitService extends ChangeNotifier {
       final groupsJson = prefs.getString(_storageKey);
       if (groupsJson != null && groupsJson.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(groupsJson) as List<dynamic>;
-        _groups = decoded.map((g) => SplitGroup.fromJson(g as Map<String, dynamic>)).toList();
+        // Strip out any legacy seeded mock trips
+        _groups = decoded
+            .map((g) => SplitGroup.fromJson(g as Map<String, dynamic>))
+            .where((g) => g.id != 'grp_goa' && g.id != 'grp_flat' && g.id != 'grp_lunch')
+            .toList();
       } else {
-        _seedInitialData();
-        await _save();
+        _groups = [];
       }
+
+      // Try syncing groups from backend
+      await _syncFromBackend();
     } catch (e) {
       debugPrint('Error loading split groups: $e');
-      _seedInitialData();
+      _groups = [];
     }
     notifyListeners();
-  }
-
-  void _seedInitialData() {
-    final me = currentUser;
-    final ameya = const GroupMember(
-      id: 'usr_ameya',
-      name: 'Ameya',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-      phone: '+91 98220 12345',
-    );
-    final atharva = const GroupMember(
-      id: 'usr_atharva',
-      name: 'Atharva',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
-      phone: '+91 98330 23456',
-    );
-    final sneha = const GroupMember(
-      id: 'usr_sneha',
-      name: 'Sneha',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-      phone: '+91 98440 34567',
-    );
-    final rohan = const GroupMember(
-      id: 'usr_rohan',
-      name: 'Rohan',
-      avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80',
-      phone: '+91 98550 45678',
-    );
-
-    final goaMembers = [me, ameya, atharva, sneha, rohan];
-
-    final dinnerAllocations = calculateEqualSplit(
-      totalAmount: 3000.0,
-      members: goaMembers,
-    );
-    final scooterAllocations = calculateEqualSplit(
-      totalAmount: 2500.0,
-      members: goaMembers,
-    );
-    final beachAllocations = calculateEqualSplit(
-      totalAmount: 1200.0,
-      members: [me, ameya, atharva, rohan],
-    );
-
-    final goaExpenses = [
-      GroupExpense(
-        id: 'exp_01',
-        groupId: 'grp_goa',
-        title: "Dinner at Fisherman's Wharf",
-        totalAmount: 3000.0,
-        paidByMemberId: me.id,
-        paidByMemberName: '${me.name} (You)',
-        splitType: SplitType.equal,
-        allocations: dinnerAllocations,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        category: 'Food & Dining',
-      ),
-      GroupExpense(
-        id: 'exp_02',
-        groupId: 'grp_goa',
-        title: 'Scooter Rental (3 days)',
-        totalAmount: 2500.0,
-        paidByMemberId: rohan.id,
-        paidByMemberName: rohan.name,
-        splitType: SplitType.equal,
-        allocations: scooterAllocations,
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        category: 'Travel & Commute',
-      ),
-      GroupExpense(
-        id: 'exp_03',
-        groupId: 'grp_goa',
-        title: 'Beach Shack Snacks',
-        totalAmount: 1200.0,
-        paidByMemberId: ameya.id,
-        paidByMemberName: ameya.name,
-        splitType: SplitType.equal,
-        allocations: beachAllocations,
-        createdAt: DateTime.now().subtract(const Duration(days: 3)),
-        category: 'Food & Dining',
-      ),
-    ];
-
-    final flatmates = [me, atharva, rohan];
-    final rentExpense = GroupExpense(
-      id: 'exp_flat_01',
-      groupId: 'grp_flat',
-      title: 'High-speed Fiber & Maintenance',
-      totalAmount: 22000.0,
-      paidByMemberId: atharva.id,
-      paidByMemberName: atharva.name,
-      splitType: SplitType.equal,
-      allocations: calculateEqualSplit(totalAmount: 22000.0, members: flatmates),
-      createdAt: DateTime.now().subtract(const Duration(days: 5)),
-      category: 'Rent & Utilities',
-    );
-
-    final lunchMembers = [me, ameya, atharva, sneha];
-    final lunchExpense = GroupExpense(
-      id: 'exp_lunch_01',
-      groupId: 'grp_lunch',
-      title: 'Team Bento Box Lunch',
-      totalAmount: 3200.0,
-      paidByMemberId: me.id,
-      paidByMemberName: '${me.name} (You)',
-      splitType: SplitType.equal,
-      allocations: calculateEqualSplit(totalAmount: 3200.0, members: lunchMembers),
-      createdAt: DateTime.now().subtract(const Duration(days: 6)),
-      category: 'Food & Dining',
-    );
-
-    _groups = [
-      SplitGroup(
-        id: 'grp_goa',
-        title: 'Goa Trip 2026',
-        icon: '🏖️',
-        members: goaMembers,
-        expenses: goaExpenses,
-        createdAt: DateTime.now().subtract(const Duration(days: 10)),
-      ),
-      SplitGroup(
-        id: 'grp_flat',
-        title: 'Flatmates (HSR)',
-        icon: '🏡',
-        members: flatmates,
-        expenses: [rentExpense],
-        createdAt: DateTime.now().subtract(const Duration(days: 20)),
-      ),
-      SplitGroup(
-        id: 'grp_lunch',
-        title: 'Office Lunch',
-        icon: '🍱',
-        members: lunchMembers,
-        expenses: [lunchExpense],
-        createdAt: DateTime.now().subtract(const Duration(days: 25)),
-      ),
-    ];
   }
 
   Future<void> _save() async {
@@ -200,6 +85,139 @@ class SplitService extends ChangeNotifier {
       await prefs.setStringList(_settledDebtsKey, _settledDebtIds.toList());
     } catch (e) {
       debugPrint('Error saving split groups: $e');
+    }
+  }
+
+  Future<void> _syncFromBackend() async {
+    try {
+      final token = SessionService().token;
+      if (token == null || token.isEmpty) return;
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/groups');
+      final res = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 4));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true && data['data'] is List) {
+          final List<dynamic> list = data['data'] as List<dynamic>;
+          if (list.isNotEmpty) {
+            _groups = list.map((g) => SplitGroup.fromJson(g as Map<String, dynamic>)).toList();
+            await _save();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Backend sync split groups: $e');
+    }
+  }
+
+  /// Look up registered user by mobile phone in FinTrack's database
+  Future<Map<String, dynamic>> lookupUserByPhone(String phone) async {
+    final cleanPhone = phone.trim();
+    if (cleanPhone.isEmpty) {
+      return {
+        'exists': false,
+        'message': 'Please enter a mobile number',
+      };
+    }
+
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/users/lookup?phone=${Uri.encodeComponent(cleanPhone)}');
+      final res = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 4));
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200 && data['success'] == true) {
+        final userData = (data['data'] as Map<String, dynamic>)['user'] as Map<String, dynamic>;
+        return {
+          'exists': true,
+          'user': userData,
+        };
+      } else {
+        return {
+          'exists': false,
+          'message': data['message'] ?? 'This person is not available on FinTrack. Please check the mobile number or invite them to join FinTrack.',
+        };
+      }
+    } catch (e) {
+      debugPrint('Error looking up user by phone: $e');
+      return {
+        'exists': false,
+        'message': 'This person does not exist with FinTrack or is not available on FinTrack.',
+      };
+    }
+  }
+
+  /// Delete a split group completely and sync with backend
+  Future<void> deleteGroup(String groupId) async {
+    _groups.removeWhere((g) => g.id == groupId);
+    await _save();
+    notifyListeners();
+
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/groups/$groupId');
+      await http.delete(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('Backend delete group error: $e');
+    }
+  }
+
+  /// Accept or decline a group invitation
+  Future<void> respondToInvitation(String groupId, bool accept) async {
+    final action = accept ? 'ACCEPT' : 'DECLINE';
+    final currentUserId = currentUser.id;
+
+    final groupIndex = _groups.indexWhere((g) => g.id == groupId);
+    if (groupIndex != -1) {
+      final group = _groups[groupIndex];
+      final updatedMembers = group.members.map((m) {
+        if (m.id == currentUserId || m.isCurrentUser || (m.phoneNumber.isNotEmpty && m.phoneNumber == currentUser.phoneNumber)) {
+          return m.copyWith(status: accept ? 'ACCEPTED' : 'DECLINED');
+        }
+        return m;
+      }).toList();
+
+      if (accept) {
+        _groups[groupIndex] = group.copyWith(members: updatedMembers);
+      } else {
+        _groups.removeAt(groupIndex);
+      }
+      await _save();
+      notifyListeners();
+    }
+
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/groups/$groupId/invitation');
+      await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'action': action}),
+      ).timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('Backend respond to invitation error: $e');
     }
   }
 

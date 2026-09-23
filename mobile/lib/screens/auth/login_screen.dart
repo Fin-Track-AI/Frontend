@@ -211,15 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: BoxDecoration(
                               color: !_isPhoneMode ? AppColors.surface : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
-                              boxShadow: !_isPhoneMode
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
+                              border: !_isPhoneMode ? Border.all(color: AppColors.border) : null,
                             ),
                             child: Center(
                               child: Text(
@@ -243,15 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: BoxDecoration(
                               color: _isPhoneMode ? AppColors.surface : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
-                              boxShadow: _isPhoneMode
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
+                              border: _isPhoneMode ? Border.all(color: AppColors.border) : null,
                             ),
                             child: Center(
                               child: Text(

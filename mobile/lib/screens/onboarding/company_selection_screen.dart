@@ -438,15 +438,6 @@ class _CompanySelectionScreenState extends State<CompanySelectionScreen> {
             color: isSelected ? AppColors.primary : AppColors.border,
             width: isSelected ? 2.0 : 1.0,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

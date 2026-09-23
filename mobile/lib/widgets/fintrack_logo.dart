@@ -24,19 +24,6 @@ class FinTrackLogo extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF7A00).withValues(alpha: 0.28),
-            blurRadius: size * 0.35,
-            spreadRadius: 1,
-            offset: Offset(0, size * 0.12),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.24),

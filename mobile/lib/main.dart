@@ -18,6 +18,7 @@ import 'screens/onboarding/employer_link_screen.dart';
 import 'screens/onboarding/company_selection_screen.dart';
 import 'screens/onboarding/consent_screen.dart';
 import 'screens/onboarding/financial_setup_screen.dart';
+import 'screens/legal/terms_privacy_screen.dart';
 import 'services/session_service.dart';
 import 'services/user_financial_service.dart';
 import 'core/config/api_config.dart';
@@ -65,7 +66,9 @@ class FinTrackApp extends StatelessWidget {
         AppRoutes.splitExpenses: (context) => const SplitExpensesScreen(),
         AppRoutes.aiAssistant: (context) => const AiAssistantScreen(),
         AppRoutes.profile: (context) => const ProfileScreen(),
+        AppRoutes.termsPrivacy: (context) => const TermsPrivacyScreen(),
       },
     );
+
   }
 }

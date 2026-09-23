@@ -18,14 +18,7 @@ class AskAiPill extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: AppColors.border, width: 1.2),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

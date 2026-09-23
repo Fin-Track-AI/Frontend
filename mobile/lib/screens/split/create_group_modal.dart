@@ -22,50 +22,106 @@ class CreateGroupModal extends StatefulWidget {
 class _CreateGroupModalState extends State<CreateGroupModal> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _memberNameController = TextEditingController();
-  final _memberPhoneController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   String _selectedEmoji = '🏖️';
   final List<String> _emojiOptions = ['🏖️', '🏡', '🍱', '✈️', '🎉', '☕', '🎮', '🚗', '🍕', '🏕️', '🍿', '💡'];
 
   late List<GroupMember> _members;
+  bool _isSearching = false;
+  String? _phoneErrorMessage;
 
   @override
   void initState() {
     super.initState();
-    // Default current user + 2 template friends for quick start with 3+ members
+    // Creator is the only initial member — no demo/mock members
     final currentUser = SplitService().currentUser;
-    _members = [
-      currentUser,
-      GroupMember(id: 'member_2', name: 'Ameya', phoneNumber: '+91 98765 43211', avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80'),
-      GroupMember(id: 'member_3', name: 'Aarav', phoneNumber: '+91 98765 43212', avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80'),
-    ];
+    _members = [currentUser];
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _memberNameController.dispose();
-    _memberPhoneController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  void _addMember() {
-    final name = _memberNameController.text.trim();
-    if (name.isEmpty) return;
+  Future<void> _verifyAndAddMember() async {
+    final rawPhone = _phoneController.text.trim();
+    if (rawPhone.isEmpty) {
+      setState(() {
+        _phoneErrorMessage = 'Please enter a 10-digit mobile number';
+      });
+      return;
+    }
 
-    final phone = _memberPhoneController.text.trim();
-    setState(() {
-      _members.add(
-        GroupMember(
-          id: 'member_${DateTime.now().millisecondsSinceEpoch}',
-          name: name,
-          phoneNumber: phone.isNotEmpty ? phone : null,
-        ),
-      );
-      _memberNameController.clear();
-      _memberPhoneController.clear();
+    final digitsOnly = rawPhone.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length < 10) {
+      setState(() {
+        _phoneErrorMessage = 'Please enter a valid 10-digit mobile number';
+      });
+      return;
+    }
+
+    final last10 = digitsOnly.substring(digitsOnly.length - 10);
+    final currentUser = SplitService().currentUser;
+
+    // Check if adding own number
+    if (currentUser.phoneNumber.isNotEmpty) {
+      final userDigits = currentUser.phoneNumber.replaceAll(RegExp(r'\D'), '');
+      if (userDigits.endsWith(last10)) {
+        setState(() {
+          _phoneErrorMessage = 'You are already added as the group creator';
+        });
+        return;
+      }
+    }
+
+    // Check if already in member list
+    final alreadyAdded = _members.any((m) {
+      final mDigits = m.phoneNumber.replaceAll(RegExp(r'\D'), '');
+      return mDigits.isNotEmpty && mDigits.endsWith(last10);
     });
+
+    if (alreadyAdded) {
+      setState(() {
+        _phoneErrorMessage = 'This person is already in the member list';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _phoneErrorMessage = null;
+    });
+
+    final result = await SplitService().lookupUserByPhone(rawPhone);
+
+    if (!mounted) return;
+
+    if (result['exists'] == true) {
+      final userData = result['user'] as Map<String, dynamic>;
+      setState(() {
+        _members.add(
+          GroupMember(
+            id: userData['id']?.toString() ?? 'mem_${DateTime.now().millisecondsSinceEpoch}',
+            name: userData['name']?.toString() ?? 'FinTrack Member',
+            phone: userData['phone']?.toString() ?? rawPhone,
+            avatarUrl: userData['avatarUrl']?.toString() ?? '',
+            status: 'PENDING_INVITE',
+          ),
+        );
+        _phoneController.clear();
+        _isSearching = false;
+        _phoneErrorMessage = null;
+      });
+    } else {
+      setState(() {
+        _isSearching = false;
+        _phoneErrorMessage = result['message']?.toString() ??
+            'This person does not exist with FinTrack / is not available on FinTrack.';
+      });
+    }
   }
 
   void _removeMember(int index) {
@@ -84,7 +140,10 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
     if (!_formKey.currentState!.validate()) return;
     if (_members.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least 2 members to split expenses')),
+        const SnackBar(
+          backgroundColor: AppColors.red,
+          content: Text('Please add at least 1 friend by mobile number to split expenses'),
+        ),
       );
       return;
     }
@@ -135,7 +194,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                   children: const [
                     Text('Create Split Group', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                     SizedBox(height: 2),
-                    Text('BR-16: Organize non-monetary shared expenses', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    Text('Add friends via mobile number & split shared expenses', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   ],
                 ),
                 IconButton(
@@ -216,7 +275,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('GROUP MEMBERS (${_members.length})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.5)),
-                        const Text('3+ members recommended', style: TextStyle(fontSize: 10, color: AppColors.green, fontWeight: FontWeight.w700)),
+                        const Text('Verified by FinTrack', style: TextStyle(fontSize: 10, color: AppColors.green, fontWeight: FontWeight.w700)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -229,7 +288,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final member = _members[index];
-                        final isSelf = member.isSelf;
+                        final isSelf = member.isSelf || member.isCurrentUser;
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
@@ -258,14 +317,19 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                                           member.name,
                                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                                         ),
-                                        if (isSelf) ...[
-                                          const SizedBox(width: 6),
+                                        const SizedBox(width: 6),
+                                        if (isSelf)
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                             decoration: BoxDecoration(color: AppColors.green, borderRadius: BorderRadius.circular(4)),
-                                            child: const Text('YOU', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
+                                            child: const Text('YOU (ADMIN)', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
+                                          )
+                                        else
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                            decoration: BoxDecoration(color: AppColors.blue.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                                            child: const Text('INVITATION WILL BE SENT', style: TextStyle(color: AppColors.blue, fontSize: 8, fontWeight: FontWeight.w800)),
                                           ),
-                                        ],
                                       ],
                                     ),
                                     if (member.phoneNumber.isNotEmpty)
@@ -289,53 +353,87 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Add new member input
+                    // Add new member input by Mobile Number
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+                        border: Border.all(color: AppColors.border),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Add Member to Group', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                          const SizedBox(height: 8),
+                          const Text('Add Member by Mobile Number', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                          const SizedBox(height: 2),
+                          const Text('We will check if this friend has a FinTrack account and send an invitation', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                          const SizedBox(height: 10),
                           Row(
                             children: [
                               Expanded(
                                 child: TextField(
-                                  controller: _memberNameController,
-                                  style: const TextStyle(fontSize: 13),
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                                   decoration: InputDecoration(
-                                    hintText: 'Member name (e.g. Sneha)',
+                                    hintText: 'e.g. 9876543210',
                                     hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                    prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: AppColors.textSecondary),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                     filled: true,
                                     fillColor: AppColors.surfaceMuted,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                                   ),
+                                  onSubmitted: (_) => _verifyAndAddMember(),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               ElevatedButton(
-                                onPressed: _addMember,
+                                onPressed: _isSearching ? null : _verifyAndAddMember,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.add, size: 16),
-                                    SizedBox(width: 4),
-                                    Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
+                                child: _isSearching
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                    : const Row(
+                                        children: [
+                                          Icon(Icons.search, size: 16),
+                                          SizedBox(width: 4),
+                                          Text('Check & Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
                               ),
                             ],
                           ),
+                          if (_phoneErrorMessage != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF1F0),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFFFCCC7)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, size: 16, color: AppColors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _phoneErrorMessage!,
+                                      style: const TextStyle(fontSize: 11, color: AppColors.red, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -353,7 +451,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                           elevation: 0,
                         ),
                         child: const Text(
-                          'Create Group',
+                          'Create Group & Send Invites',
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
                         ),
                       ),
