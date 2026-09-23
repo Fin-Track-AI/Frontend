@@ -32,6 +32,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final ClaimService _claimService = ClaimService();
 
+  // Local financial state — refreshed whenever setup screen is closed
+  double _monthlySalary = 0;
+  double _fixedObligations = 0;
+  double _safeCap = 0;
+
+  void _refreshFinancials() {
+    final svc = UserFinancialService();
+    setState(() {
+      _monthlySalary = svc.monthlySalary;
+      _fixedObligations = svc.totalFixedObligations;
+      _safeCap = svc.safeToSpendCap;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +58,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user != null && mounted) {
       setState(() => _savedUser = user);
     }
+    // Also load financials on init
+    _refreshFinancials();
   }
 
   Future<void> _loadEmployerStatus() async {
@@ -264,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             MaterialPageRoute(builder: (context) => const FinancialSetupScreen(isModalEdit: true)),
                           );
                           if (updated == true && mounted) {
-                            setState(() {});
+                            _refreshFinancials(); // re-read singleton values and trigger rebuild
                           }
                         },
                         style: OutlinedButton.styleFrom(
@@ -289,7 +305,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Text('Monthly Salary', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
                             Text(
-                              '₹${UserFinancialService().monthlySalary.toStringAsFixed(0)}',
+                              '₹${_monthlySalary.toStringAsFixed(0)}',
                               style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
                             ),
                           ],
@@ -304,7 +320,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Text('Fixed Obligations', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
                             Text(
-                              '₹${UserFinancialService().totalFixedObligations.toStringAsFixed(0)}',
+                              '₹${_fixedObligations.toStringAsFixed(0)}',
                               style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
                             ),
                           ],
@@ -319,7 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Text('Safe Cap', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
                             Text(
-                              '₹${UserFinancialService().safeToSpendCap.toStringAsFixed(0)}',
+                              '₹${_safeCap.toStringAsFixed(0)}',
                               style: const TextStyle(color: AppColors.green, fontSize: 18, fontWeight: FontWeight.w800),
                             ),
                           ],
