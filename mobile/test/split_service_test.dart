@@ -242,5 +242,70 @@ void main() {
       final addedMember = group.members.firstWhere((m) => m.id == memberB.id);
       expect(addedMember.isPendingInvite, isTrue);
     });
+
+    test('SplitGroup.fromJson parses MongoDB format with expenses and calculates total spend and simplified debts', () {
+      final mongoGroupJson = {
+        '_id': '6ab43d3446de474e271ed394',
+        'title': 'food',
+        'icon': '🍱',
+        'createdBy': '6ab43af646de474e271ed38f',
+        'members': [
+          {
+            'memberId': '6ab43af646de474e271ed38f',
+            'name': 'Ritesh',
+            'phone': '3257182983',
+            'isCurrentUser': true,
+            'status': 'ACCEPTED',
+          },
+          {
+            'memberId': '6ab43c0b46de474e271ed392',
+            'name': 'Ritesh sharma',
+            'phone': '7242627282',
+            'isCurrentUser': false,
+            'status': 'ACCEPTED',
+          }
+        ],
+        'expenses': [
+          {
+            '_id': '6ab43d6546de474e271ed397',
+            'groupId': '6ab43d3446de474e271ed394',
+            'title': 'foodway',
+            'totalAmount': 500,
+            'paidByMemberId': '6ab43af646de474e271ed38f',
+            'paidByMemberName': 'Ritesh (You)',
+            'splitType': 'equal',
+            'allocations': [
+              {
+                'memberId': '6ab43af646de474e271ed38f',
+                'memberName': 'Ritesh',
+                'amount': 250,
+                'percentage': 50,
+              },
+              {
+                'memberId': '6ab43c0b46de474e271ed392',
+                'memberName': 'Ritesh sharma',
+                'amount': 250,
+                'percentage': 50,
+              }
+            ],
+            'category': 'Food & Dining',
+            'createdAt': '2026-09-23T20:58:13.673Z',
+          }
+        ]
+      };
+
+      final group = SplitGroup.fromJson(mongoGroupJson);
+      expect(group.id, '6ab43d3446de474e271ed394');
+      expect(group.totalSpend, 500.0);
+      expect(group.expenses.length, 1);
+      expect(group.expenses.first.id, '6ab43d6546de474e271ed397');
+      expect(group.expenses.first.totalAmount, 500.0);
+
+      final debts = service.calculateSimplifiedDebts(group);
+      expect(debts.length, 1);
+      expect(debts.first.fromMemberId, '6ab43c0b46de474e271ed392');
+      expect(debts.first.toMemberId, '6ab43af646de474e271ed38f');
+      expect(debts.first.amount, 250.0);
+    });
   });
 }

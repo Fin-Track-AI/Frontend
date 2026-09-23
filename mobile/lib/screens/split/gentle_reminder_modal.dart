@@ -7,17 +7,20 @@ import '../../services/split_service.dart';
 class GentleReminderModal extends StatefulWidget {
   final DebtRelation debt;
   final String groupName;
+  final String? groupId;
 
   const GentleReminderModal({
     super.key,
     required this.debt,
     required this.groupName,
+    this.groupId,
   });
 
   static Future<void> show(
     BuildContext context, {
     required DebtRelation debt,
     required String groupName,
+    String? groupId,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -26,6 +29,7 @@ class GentleReminderModal extends StatefulWidget {
       builder: (context) => GentleReminderModal(
         debt: debt,
         groupName: groupName,
+        groupId: groupId,
       ),
     );
   }
@@ -36,6 +40,7 @@ class GentleReminderModal extends StatefulWidget {
 
 class _GentleReminderModalState extends State<GentleReminderModal> {
   int _selectedToneIndex = 0;
+  bool _isSending = false;
 
   final List<String> _tones = ['Friendly & Casual', 'Quick Poke', 'Direct & Clear'];
 
@@ -61,10 +66,10 @@ class _GentleReminderModalState extends State<GentleReminderModal> {
     Clipboard.setData(ClipboardData(text: text));
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         backgroundColor: AppColors.textPrimary,
         content: Row(
-          children: const [
+          children: [
             Icon(Icons.check_circle, color: AppColors.green, size: 18),
             SizedBox(width: 8),
             Text('Reminder copied to clipboard! Paste in WhatsApp or SMS.'),
@@ -74,25 +79,60 @@ class _GentleReminderModalState extends State<GentleReminderModal> {
     );
   }
 
-  void _sendAppNotification() {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.green,
-        content: Row(
-          children: [
-            const Icon(Icons.send_rounded, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Gentle reminder sent to ${widget.debt.fromMemberName} for ₹${widget.debt.amount.toStringAsFixed(0)}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
+  void _sendAppNotification() async {
+    if (_isSending) return;
+    setState(() => _isSending = true);
+
+    final targetGroupId = widget.groupId ?? widget.debt.id.split('_').first;
+    final message = _getToneMessage(_selectedToneIndex);
+
+    final success = await SplitService().sendReminder(
+      groupId: targetGroupId,
+      debt: widget.debt,
+      message: message,
     );
+
+    if (!mounted) return;
+    setState(() => _isSending = false);
+    Navigator.pop(context);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.green,
+          content: Row(
+            children: [
+              const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Gentle reminder sent to ${widget.debt.fromMemberName} for ₹${widget.debt.amount.toStringAsFixed(0)}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.textPrimary,
+          content: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.amber, size: 18),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Could not deliver in-app reminder. Try copying to clipboard.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -302,15 +342,24 @@ class _GentleReminderModalState extends State<GentleReminderModal> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _sendAppNotification,
+                        onPressed: _isSending ? null : _sendAppNotification,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           minimumSize: const Size(double.infinity, 48),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 0,
                         ),
-                        icon: const Icon(Icons.notifications_active_outlined, size: 16, color: Colors.white),
-                        label: const Text('Send Nudge', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                        icon: _isSending
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.notifications_active_outlined, size: 16, color: Colors.white),
+                        label: Text(
+                          _isSending ? 'Sending...' : 'Send Nudge',
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                        ),
                       ),
                     ),
                   ],

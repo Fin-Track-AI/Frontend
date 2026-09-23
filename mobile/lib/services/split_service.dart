@@ -131,7 +131,23 @@ class SplitService extends ChangeNotifier {
             final List<dynamic> list = data['data'] as List<dynamic>;
             for (final g in list) {
               final group = SplitGroup.fromJson(g as Map<String, dynamic>);
-              merged[group.id] = group;
+              final existing = merged[group.id];
+
+              final serverSignatures = group.expenses
+                  .map((e) => '${e.title.toLowerCase().trim()}_${e.totalAmount.toStringAsFixed(2)}')
+                  .toSet();
+
+              // Server expenses are canonical. Only preserve truly unsynced local exp_ items
+              final unsyncedLocal = (existing?.expenses ?? [])
+                  .where((e) =>
+                      e.id.startsWith('exp_') &&
+                      !serverSignatures.contains('${e.title.toLowerCase().trim()}_${e.totalAmount.toStringAsFixed(2)}'))
+                  .toList();
+
+              merged[group.id] = group.copyWith(
+                expenses: [...group.expenses, ...unsyncedLocal],
+                settledDebtKeys: group.settledDebtKeys,
+              );
             }
           }
         }
@@ -165,12 +181,27 @@ class SplitService extends ChangeNotifier {
       }
 
       _groups = merged.values.toList();
+
+      // Collect settled debt keys from all backend groups
+      final remoteSettled = <String>{};
+      for (final g in _groups) {
+        remoteSettled.addAll(g.settledDebtKeys);
+      }
+      _settledDebtIds.clear();
+      _settledDebtIds.addAll(remoteSettled);
+
+      // Trigger notification refresh alongside group sync
+      NotificationService().syncWithBackend();
+
       await _save();
       notifyListeners();
     } catch (e) {
       debugPrint('Backend sync split groups: $e');
     }
   }
+
+  /// Manually trigger full bidirectional sync with FinTrack backend
+  Future<void> syncFromBackend() => _syncFromBackend();
 
   /// Look up registered user by mobile phone in FinTrack's database
   Future<Map<String, dynamic>> lookupUserByPhone(String phone) async {
@@ -458,10 +489,18 @@ class SplitService extends ChangeNotifier {
   List<DebtRelation> getSimplifiedDebts(String groupId) {
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index == -1) return [];
-    return calculateSimplifiedDebts(_groups[index]);
+    return calculateSimplifiedDebts(_groups[index], includeSettled: false);
   }
 
-  List<DebtRelation> calculateSimplifiedDebts(SplitGroup group) {
+  List<DebtRelation> getSettledDebts(String groupId) {
+    final index = _groups.indexWhere((g) => g.id == groupId);
+    if (index == -1) return [];
+    return calculateSimplifiedDebts(_groups[index], includeSettled: true)
+        .where((d) => d.isSettled)
+        .toList();
+  }
+
+  List<DebtRelation> calculateSimplifiedDebts(SplitGroup group, {bool includeSettled = false}) {
     final netBalances = calculateNetBalances(group);
     final memberMap = {for (var m in group.members) m.id: m};
 
@@ -493,9 +532,9 @@ class SplitService extends ChangeNotifier {
 
       if (roundedAmount > 0.05) {
         final debtKey = '${group.id}_${debtor.id}_${creditor.id}';
-        final isSettled = _settledDebtIds.contains(debtKey);
+        final isSettled = _settledDebtIds.contains(debtKey) || group.settledDebtKeys.contains(debtKey);
 
-        if (!isSettled) {
+        if (!isSettled || includeSettled) {
           simplifiedDebts.add(
             DebtRelation(
               id: debtKey,
@@ -504,7 +543,7 @@ class SplitService extends ChangeNotifier {
               toMemberId: creditor.id,
               toMemberName: memberMap[creditor.id]?.name ?? 'Unknown',
               amount: roundedAmount,
-              isSettled: false,
+              isSettled: isSettled,
             ),
           );
         }
@@ -525,18 +564,121 @@ class SplitService extends ChangeNotifier {
   // ===========================================================================
   Future<void> markSettlementComplete(
     dynamic debtOrKey, {
+    String? groupId,
     String note = 'Settled via external UPI/Cash',
   }) async {
     final debtKey = debtOrKey is DebtRelation ? debtOrKey.id : debtOrKey.toString();
     _settledDebtIds.add(debtKey);
+
+    DebtRelation? debt;
+    String? resolvedGroupId = groupId;
+    if (debtOrKey is DebtRelation) {
+      debt = debtOrKey;
+      final parts = debtKey.split('_');
+      if (parts.isNotEmpty) resolvedGroupId ??= parts.first;
+    } else {
+      final parts = debtKey.split('_');
+      if (parts.isNotEmpty) resolvedGroupId ??= parts.first;
+    }
+
+    if (resolvedGroupId != null) {
+      final gIdx = _groups.indexWhere((g) => g.id == resolvedGroupId);
+      if (gIdx != -1) {
+        final currentKeys = Set<String>.from(_groups[gIdx].settledDebtKeys)..add(debtKey);
+        _groups[gIdx] = _groups[gIdx].copyWith(settledDebtKeys: currentKeys.toList());
+      }
+    }
+
     await _save();
     notifyListeners();
+
+    // Sync settlement to FinTrack backend
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/settlements');
+      await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'groupId': resolvedGroupId,
+          'debtKey': debtKey,
+          'fromMemberId': debt?.fromMemberId,
+          'fromMemberName': debt?.fromMemberName,
+          'toMemberId': debt?.toMemberId,
+          'toMemberName': debt?.toMemberName,
+          'amount': debt?.amount ?? 0,
+          'settlementNote': note,
+        }),
+      ).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('Sync settlement error: $e');
+    }
   }
 
-  Future<void> revertSettlement({required String debtKey}) async {
+  Future<void> revertSettlement({required String debtKey, String? groupId}) async {
     _settledDebtIds.remove(debtKey);
+
+    final parts = debtKey.split('_');
+    final resolvedGroupId = groupId ?? (parts.isNotEmpty ? parts.first : null);
+    if (resolvedGroupId != null) {
+      final gIdx = _groups.indexWhere((g) => g.id == resolvedGroupId);
+      if (gIdx != -1) {
+        final currentKeys = Set<String>.from(_groups[gIdx].settledDebtKeys)..remove(debtKey);
+        _groups[gIdx] = _groups[gIdx].copyWith(settledDebtKeys: currentKeys.toList());
+      }
+    }
+
     await _save();
     notifyListeners();
+
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/settlements/$debtKey');
+      await http.delete(
+        uri,
+        headers: {
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('Revert settlement error: $e');
+    }
+  }
+
+  Future<bool> sendReminder({
+    required String groupId,
+    required DebtRelation debt,
+    required String message,
+  }) async {
+    try {
+      final token = SessionService().token;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/split/reminder');
+      final res = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'groupId': groupId,
+          'debtKey': debt.id,
+          'fromMemberId': debt.fromMemberId,
+          'fromMemberName': debt.fromMemberName,
+          'toMemberId': debt.toMemberId,
+          'toMemberName': debt.toMemberName,
+          'amount': debt.amount,
+          'message': message,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('Send reminder error: $e');
+      return false;
+    }
   }
 
   // ===========================================================================
@@ -709,7 +851,7 @@ class SplitService extends ChangeNotifier {
     try {
       final token = SessionService().token;
       final uri = Uri.parse('${ApiConfig.baseUrl}/split/groups/$groupId/expenses');
-      await http.post(
+      final res = await http.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
@@ -725,6 +867,26 @@ class SplitService extends ChangeNotifier {
           'notes': expense.notes,
         }),
       ).timeout(const Duration(seconds: 5));
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['success'] == true && data['data'] != null) {
+          final serverExpense = GroupExpense.fromJson(data['data'] as Map<String, dynamic>);
+          final gIdx = _groups.indexWhere((g) => g.id == groupId);
+          if (gIdx != -1) {
+            final eIdx = _groups[gIdx].expenses.indexWhere((e) => e.id == expense.id);
+            final newExpenses = List<GroupExpense>.from(_groups[gIdx].expenses);
+            if (eIdx != -1) {
+              newExpenses[eIdx] = serverExpense;
+            } else {
+              newExpenses.add(serverExpense);
+            }
+            _groups[gIdx] = _groups[gIdx].copyWith(expenses: newExpenses);
+            await _save();
+            notifyListeners();
+          }
+        }
+      }
     } catch (e) {
       debugPrint('Sync new expense to backend error: $e');
     }
@@ -739,12 +901,19 @@ class SplitService extends ChangeNotifier {
     final currentUserId = currentUser.id;
 
     for (final group in _groups) {
+      final myIds = <String>{currentUserId};
+      for (final m in group.members) {
+        if (m.isSelf) {
+          myIds.add(m.id);
+        }
+      }
+
       final debts = calculateSimplifiedDebts(group);
       for (final debt in debts) {
         if (debt.isSettled) continue;
-        if (debt.toMemberId == currentUserId) {
+        if (myIds.contains(debt.toMemberId)) {
           totalYouAreOwed += debt.amount;
-        } else if (debt.fromMemberId == currentUserId) {
+        } else if (myIds.contains(debt.fromMemberId)) {
           totalYouOwe += debt.amount;
         }
       }

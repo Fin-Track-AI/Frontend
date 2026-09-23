@@ -49,17 +49,20 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
   void _openAddExpense(SplitGroup group) async {
     final expense = await AddSplitExpenseModal.show(context, group: group);
     if (expense != null && mounted) {
-      setState(() {});
+      await _splitService.syncFromBackend();
+      if (mounted) setState(() {});
     }
   }
 
-  void _openGentleReminder(DebtRelation debt, String groupName) {
-    GentleReminderModal.show(context, debt: debt, groupName: groupName);
+  void _openGentleReminder(DebtRelation debt, SplitGroup group) {
+    GentleReminderModal.show(context, debt: debt, groupName: group.name, groupId: group.id);
   }
 
-  void _markDebtSettled(DebtRelation debt) async {
-    await _splitService.markSettlementComplete(debt);
+  void _markDebtSettled(DebtRelation debt, {String? groupId}) async {
+    await _splitService.markSettlementComplete(debt, groupId: groupId);
+    await _splitService.syncFromBackend();
     if (!mounted) return;
+    setState(() {});
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -71,6 +74,31 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
             Expanded(
               child: Text(
                 'Settlement recorded: ₹${debt.amount.toStringAsFixed(0)} between ${debt.fromMemberName} & ${debt.toMemberName} (External UPI/Cash)',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _revertDebtSettlement(DebtRelation debt, {String? groupId}) async {
+    await _splitService.revertSettlement(debtKey: debt.id, groupId: groupId);
+    await _splitService.syncFromBackend();
+    if (!mounted) return;
+    setState(() {});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.textPrimary,
+        content: Row(
+          children: [
+            const Icon(Icons.undo, color: AppColors.blue, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Settlement reverted: ₹${debt.amount.toStringAsFixed(0)} between ${debt.fromMemberName} & ${debt.toMemberName}',
                 style: const TextStyle(fontSize: 12),
               ),
             ),
@@ -171,10 +199,20 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
 
         final selectedGroup = hasGroups ? groups[_selectedGroupIndex] : null;
         final debts = selectedGroup != null ? _splitService.getSimplifiedDebts(selectedGroup.id) : <DebtRelation>[];
+        final settledDebts = selectedGroup != null ? _splitService.getSettledDebts(selectedGroup.id) : <DebtRelation>[];
         final currentUserId = _splitService.currentUser.id;
+        final myMemberIds = <String>{currentUserId};
+        if (selectedGroup != null) {
+          for (final m in selectedGroup.members) {
+            if (m.isSelf) {
+              myMemberIds.add(m.id);
+            }
+          }
+        }
 
         // User relevant debts in current group
-        final userDebts = debts.where((d) => d.fromMemberId == currentUserId || d.toMemberId == currentUserId).toList();
+        final userDebts = debts.where((d) => myMemberIds.contains(d.fromMemberId) || myMemberIds.contains(d.toMemberId)).toList();
+        final userSettledDebts = settledDebts.where((d) => myMemberIds.contains(d.fromMemberId) || myMemberIds.contains(d.toMemberId)).toList();
 
         // Overall Net Position across all groups
         final netPosition = _splitService.getOverallUserPosition();
@@ -185,9 +223,11 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
           backgroundColor: AppColors.background,
           appBar: const FinTrackHeader(),
           body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              children: [
+            child: RefreshIndicator(
+              onRefresh: () => _splitService.syncFromBackend(),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                children: [
                 // Header Tag: SOCIAL LEDGER
                 Row(
                   children: [
@@ -659,7 +699,7 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
                       )
                     else
                       ...userDebts.map((debt) {
-                        final isIncoming = debt.toMemberId == currentUserId;
+                        final isIncoming = myMemberIds.contains(debt.toMemberId);
                         final otherPartyName = isIncoming ? debt.fromMemberName : debt.toMemberName;
                         final title = isIncoming ? '$otherPartyName owes you' : 'You owe $otherPartyName';
                         final amountFormatted = '${isIncoming ? '+' : '-'}₹${debt.amount.toStringAsFixed(0)}';
@@ -672,11 +712,55 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
                             subtitle: 'External UPI / Cash Settlement',
                             amount: amountFormatted,
                             hasRemind: isIncoming,
-                            onSettle: () => _markDebtSettled(debt),
-                            onRemind: () => _openGentleReminder(debt, selectedGroup.name),
+                            onSettle: () => _markDebtSettled(debt, groupId: selectedGroup.id),
+                            onRemind: () => _openGentleReminder(debt, selectedGroup),
                           ),
                         );
                       }),
+
+                    if (userSettledDebts.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('SETTLED BALANCES', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                          Text('${userSettledDebts.length} settled', style: const TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...userSettledDebts.map((debt) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 16),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '₹${debt.amount.toStringAsFixed(0)} settled between ${debt.fromMemberName} & ${debt.toMemberName}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => _revertDebtSettlement(debt, groupId: selectedGroup.id),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text('Undo', style: TextStyle(color: AppColors.blue, fontSize: 11, fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
                     const SizedBox(height: 22),
 
                     // RECENT GROUP EXPENSES
@@ -702,8 +786,8 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
                       )
                     else
                       ...selectedGroup.expenses.reversed.map((exp) {
-                        final isPayer = exp.paidByMemberId == currentUserId;
-                        final userAlloc = exp.allocations.where((a) => a.memberId == currentUserId).firstOrNull;
+                        final isPayer = myMemberIds.contains(exp.paidByMemberId);
+                        final userAlloc = exp.allocations.where((a) => myMemberIds.contains(a.memberId)).firstOrNull;
 
                         String shareText;
                         bool isPositiveShare = false;
@@ -769,7 +853,8 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }

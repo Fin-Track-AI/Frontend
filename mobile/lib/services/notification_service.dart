@@ -10,6 +10,8 @@ enum NotificationType {
   splitExpense,
   claim,
   system,
+  splitReminder,
+  settlement,
 }
 
 class AppNotification {
