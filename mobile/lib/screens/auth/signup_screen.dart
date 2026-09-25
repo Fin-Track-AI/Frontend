@@ -19,9 +19,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passcodeController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
 
   bool _obscurePasscode = true;
+  bool _obscureConfirmPassword = true;
   bool _otpSent = false;
   bool _isLoading = false;
 
@@ -31,6 +33,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passcodeController.dispose();
+    _confirmPasswordController.dispose();
     _otpController.dispose();
     super.dispose();
   }
@@ -90,6 +93,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         otp: otp,
         name: name,
         phone: phone,
+        password: _passcodeController.text.trim(),
       );
 
       if (!mounted) return;
@@ -268,21 +272,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 18),
 
-                      // Passcode / Password
-                      _buildFieldLabel('SECURITY PASSCODE'),
+                      // Password
+                      _buildFieldLabel('PASSWORD'),
                       TextFormField(
                         controller: _passcodeController,
                         obscureText: _obscurePasscode,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
+                        keyboardType: TextInputType.visiblePassword,
                         style: const TextStyle(
                           color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 4,
+                          fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
-                          hintText: '••••••',
-                          counterText: '',
+                          hintText: 'Create a password (min. 6 chars)',
                           prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -293,8 +294,44 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.trim().length < 4) {
-                            return 'Passcode must be at least 4 digits';
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please create a password';
+                          }
+                          if (value.trim().length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Confirm Password
+                      _buildFieldLabel('CONFIRM PASSWORD'),
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirmPassword,
+                        keyboardType: TextInputType.visiblePassword,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Re-enter your password',
+                          prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: AppColors.textMuted,
+                            ),
+                            onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please confirm your password';
+                          }
+                          if (value.trim() != _passcodeController.text.trim()) {
+                            return 'Passwords do not match';
                           }
                           return null;
                         },
