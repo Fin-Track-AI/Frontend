@@ -478,11 +478,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ),
           const SizedBox(height: 10),
           if (intro.isNotEmpty) ...[
-            Text(intro, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
+            _buildFormattedMarkdownText(intro),
             const SizedBox(height: 8),
           ],
           if (reply != null && reply.isNotEmpty) ...[
-            Text(reply, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.35)),
+            _buildFormattedMarkdownText(reply),
             const SizedBox(height: 10),
           ],
           ...itemsList.map((item) {
@@ -605,6 +605,160 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildFormattedMarkdownText(String rawText) {
+    if (rawText.trim().isEmpty) return const SizedBox.shrink();
+
+    // Convert any $ or USD to ₹
+    final cleanText = rawText.replaceAll(RegExp(r'\$|USD\b', caseSensitive: false), '₹');
+    final lines = cleanText.split('\n');
+
+    final List<Widget> widgets = [];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trimRight();
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) {
+        widgets.add(const SizedBox(height: 4));
+        continue;
+      }
+
+      // Divider ---
+      if (trimmed == '---' || trimmed == '***') {
+        widgets.add(const Padding(
+          padding: EdgeInsets.symmetric(vertical: 6),
+          child: Divider(color: AppColors.border, height: 1),
+        ));
+        continue;
+      }
+
+      // Headers (# Header, ## Header, ### Header)
+      if (trimmed.startsWith('#')) {
+        final headerText = trimmed.replaceAll(RegExp(r'^#+\s*'), '').replaceAll(RegExp(r'\*+'), '').trim();
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(
+            headerText,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ));
+        continue;
+      }
+
+      // Bullet items: * item, - item
+      final isBullet = RegExp(r'^[\*\-]\s+').hasMatch(trimmed);
+      // Numbered items: 1. item, 2. item
+      final isNumbered = RegExp(r'^\d+\.\s+').hasMatch(trimmed);
+
+      if (isBullet || isNumbered) {
+        String content = trimmed;
+        String prefix = '• ';
+        if (isBullet) {
+          content = trimmed.replaceFirst(RegExp(r'^[\*\-]\s+'), '');
+        } else if (isNumbered) {
+          final match = RegExp(r'^(\d+\.)\s+').firstMatch(trimmed);
+          prefix = '${match?.group(1) ?? "1."} ';
+          content = trimmed.replaceFirst(RegExp(r'^\d+\.\s+'), '');
+        }
+
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                prefix,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _buildRichTextInline(content),
+              ),
+            ],
+          ),
+        ));
+        continue;
+      }
+
+      // Normal text line
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: _buildRichTextInline(trimmed),
+      ));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
+  Widget _buildRichTextInline(String text) {
+    final List<InlineSpan> spans = [];
+    final RegExp exp = RegExp(r'(\*\*(.*?)\*\*|\*(.*?)\*|`([^`]+)`)');
+
+    int lastIndex = 0;
+    for (final match in exp.allMatches(text)) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, match.start),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.35),
+        ));
+      }
+
+      final fullMatch = match.group(0) ?? '';
+      if (fullMatch.startsWith('**') && fullMatch.endsWith('**')) {
+        final boldText = match.group(2) ?? '';
+        spans.add(TextSpan(
+          text: boldText,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
+        ));
+      } else if (fullMatch.startsWith('*') && fullMatch.endsWith('*')) {
+        final italicText = match.group(3) ?? '';
+        spans.add(TextSpan(
+          text: italicText,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 12,
+            fontStyle: FontStyle.italic,
+            height: 1.35,
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(
+          text: fullMatch,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.35),
+        ));
+      }
+
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.35),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
     );
   }
 }
