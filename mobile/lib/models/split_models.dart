@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../services/session_service.dart';
 
 enum SplitType {
@@ -11,7 +10,6 @@ class GroupMember {
   final String id;
   final String name;
   final String avatarUrl;
-  final bool _rawIsCurrentUser;
   final String phone;
   final String status;
 
@@ -24,9 +22,8 @@ class GroupMember {
     this.status = 'ACCEPTED',
     String? phoneNumber,
     bool? isSelf,
-  }) : this._rawPhone = phoneNumber ?? phone,
-       this._rawIsCurrentUser = isCurrentUser,
-       this._rawIsSelf = isSelf ?? isCurrentUser;
+  }) : _rawPhone = phoneNumber ?? phone,
+       _rawIsSelf = isSelf ?? isCurrentUser;
 
   final String _rawPhone;
   final bool _rawIsSelf;
@@ -112,7 +109,7 @@ class SplitAllocation {
     double? shareAmount,
     this.percentage = 0.0,
     this.items = const [],
-  }) : this.amount = amount ?? shareAmount ?? 0.0;
+  }) : amount = amount ?? shareAmount ?? 0.0;
 
   double get shareAmount => amount;
 
@@ -145,7 +142,7 @@ class ItemizedEntry {
     String? name,
     required this.price,
     required this.assignedMemberIds,
-  }) : this.itemName = itemName ?? name ?? '';
+  }) : itemName = itemName ?? name ?? '';
 
   String get name => itemName;
 
@@ -348,7 +345,7 @@ class SplitGroup {
     required this.createdAt,
     this.createdBy = '',
     String? name,
-  }) : this._rawName = name ?? title;
+  }) : _rawName = name ?? title;
 
   final String _rawName;
   String get name => _rawName;

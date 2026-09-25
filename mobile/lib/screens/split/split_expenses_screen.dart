@@ -221,7 +221,7 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          appBar: const FinTrackHeader(),
+          appBar: const FinTrackHeader(showBackButton: false),
           body: SafeArea(
             child: RefreshIndicator(
               onRefresh: () => _splitService.syncFromBackend(),
@@ -503,13 +503,26 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
                         final isSelected = _selectedGroupIndex == idx;
                         return GestureDetector(
                           onTap: () => setState(() => _selectedGroupIndex = idx),
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
                             margin: const EdgeInsets.only(right: 10),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFF0F172A) : AppColors.surface,
+                              color: isSelected ? AppColors.primaryLight : AppColors.surface,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: isSelected ? const Color(0xFF0F172A) : AppColors.border),
+                              border: Border.all(
+                                color: isSelected ? AppColors.primary : AppColors.border,
+                                width: isSelected ? 1.6 : 1.0,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
                             ),
                             child: Row(
                               children: [
@@ -521,17 +534,18 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
                                     Text(
                                       c.name,
                                       style: TextStyle(
-                                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '${c.members.length} members • ₹${c.totalSpend.toStringAsFixed(0)}',
                                       style: TextStyle(
-                                        color: isSelected ? const Color(0xFF94A3B8) : AppColors.textMuted,
+                                        color: isSelected ? AppColors.primary.withValues(alpha: 0.8) : AppColors.textMuted,
                                         fontSize: 11,
+                                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                       ),
                                     ),
                                   ],
@@ -558,36 +572,56 @@ class _SplitExpensesScreenState extends State<SplitExpensesScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Text(selectedGroup.icon, style: const TextStyle(fontSize: 22)),
-                                  const SizedBox(width: 10),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(selectedGroup.name, style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
-                                      const SizedBox(height: 2),
-                                      Text('Total group spend: ₹${selectedGroup.totalSpend.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                                    ],
-                                  ),
-                                ],
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Text(selectedGroup.icon, style: const TextStyle(fontSize: 22)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            selectedGroup.name,
+                                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w800),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Total group spend: ₹${selectedGroup.totalSpend.toStringAsFixed(0)}',
+                                            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 6),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
                                     icon: const Icon(Icons.delete_outline_rounded, color: AppColors.red, size: 20),
                                     tooltip: 'Delete Group',
                                     onPressed: () => _deleteGroup(selectedGroup),
                                   ),
+                                  const SizedBox(width: 8),
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.primary,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    icon: const Icon(Icons.add, size: 16),
-                                    label: const Text('Add Expense', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                                    icon: const Icon(Icons.add, size: 14),
+                                    label: const Text('Add Expense', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
                                     onPressed: () => _openAddExpense(selectedGroup),
                                   ),
                                 ],

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_theme.dart';
@@ -7,14 +7,15 @@ import '../../services/bill_upload_service.dart';
 class BillUploadScreen extends StatefulWidget {
   final String authToken;
 
-  const BillUploadScreen({Key? key, required this.authToken}) : super(key: key);
+  const BillUploadScreen({super.key, required this.authToken});
 
   @override
-  _BillUploadScreenState createState() => _BillUploadScreenState();
+  State<BillUploadScreen> createState() => _BillUploadScreenState();
 }
 
 class _BillUploadScreenState extends State<BillUploadScreen> {
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedFileName;
   final _picker = ImagePicker();
   final _merchantController = TextEditingController();
   final _amountController = TextEditingController();
@@ -28,8 +29,10 @@ class _BillUploadScreenState extends State<BillUploadScreen> {
     try {
       final pickedFile = await _picker.pickImage(source: source);
       if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
         setState(() {
-          _selectedImage = File(pickedFile.path);
+          _selectedImageBytes = bytes;
+          _selectedFileName = pickedFile.name;
           _errorMessage = null;
         });
       }
@@ -41,7 +44,7 @@ class _BillUploadScreenState extends State<BillUploadScreen> {
   }
 
   Future<void> _uploadBill() async {
-    if (_selectedImage == null) {
+    if (_selectedImageBytes == null) {
       setState(() => _errorMessage = 'Please capture or select a bill photo.');
       return;
     }
@@ -60,7 +63,8 @@ class _BillUploadScreenState extends State<BillUploadScreen> {
 
     try {
       final result = await _service.uploadBillPhoto(
-        filePath: _selectedImage!.path,
+        fileBytes: _selectedImageBytes,
+        fileName: _selectedFileName,
         merchantName: _merchantController.text.trim(),
         totalAmount: amount,
         authToken: widget.authToken,
@@ -69,7 +73,8 @@ class _BillUploadScreenState extends State<BillUploadScreen> {
       setState(() {
         _isUploading = false;
         _successMessage = 'Receipt uploaded successfully! (ID: ${result['data']['id']})';
-        _selectedImage = null;
+        _selectedImageBytes = null;
+        _selectedFileName = null;
         _merchantController.clear();
         _amountController.clear();
       });
@@ -104,10 +109,10 @@ class _BillUploadScreenState extends State<BillUploadScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.primary, width: 1.5),
               ),
-              child: _selectedImage != null
+              child: _selectedImageBytes != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                      child: Image.memory(_selectedImageBytes!, fit: BoxFit.cover),
                     )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,

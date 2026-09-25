@@ -215,13 +215,19 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Create Split Group', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                    SizedBox(height: 2),
-                    Text('Add friends via mobile number & split shared expenses', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('Create Split Group', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                      SizedBox(height: 2),
+                      Text(
+                        'Add friends via mobile number & split shared expenses',
+                        style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),

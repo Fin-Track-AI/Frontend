@@ -196,8 +196,10 @@ class _BudgetsAlertsScreenState extends State<BudgetsAlertsScreen> {
                             newThresholds: [warnThreshold, 100],
                           );
 
-                          if (mounted) {
+                          if (modalCtx.mounted) {
                             Navigator.pop(modalCtx);
+                          }
+                          if (mounted) {
                             setState(() {});
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
