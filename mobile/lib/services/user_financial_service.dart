@@ -369,7 +369,18 @@ class UserFinancialService {
             };
           }).toList();
 
-          userTransactions = backendTxns;
+          // Preserve local draft transactions that have not synced to backend yet
+          final unsyncedLocal = userTransactions.where((t) {
+            final id = t['id']?.toString() ?? '';
+            if (!id.startsWith('TX_')) return false;
+            return !backendTxns.any((bt) =>
+              bt['title'] == t['title'] &&
+              (bt['amount'] as num).toDouble() == (t['amount'] as num).toDouble() &&
+              bt['date'] == t['date']
+            );
+          }).toList();
+
+          userTransactions = [...unsyncedLocal, ...backendTxns];
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
         }
@@ -392,6 +403,10 @@ class UserFinancialService {
     userTransactions.insertAll(0, sanitizedList);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
+
+    for (final tx in sanitizedList) {
+      _syncNewTransactionToBackend(tx);
+    }
 
     if (overrideSalary != null && overrideSalary > 0) {
       monthlySalary = overrideSalary;
@@ -460,23 +475,73 @@ class UserFinancialService {
     String? paidVia,
     bool isReimbursable = false,
     String? dateString,
+    String type = 'expense',
+    String? note,
   }) async {
     final now = DateTime.now();
     final todayIso = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final cleanDate = extractCleanDate(dateString ?? todayIso);
+
     final tx = {
       'id': 'TX_${now.millisecondsSinceEpoch}',
       'title': title,
       'category': category,
       'amount': amount,
-      'date': extractCleanDate(dateString ?? todayIso),
+      'type': type,
+      'date': cleanDate,
       'paidVia': paidVia ?? 'UPI',
       'isReimbursable': isReimbursable,
+      'note': note ?? '',
     };
 
     userTransactions.insert(0, tx);
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
+
+    // Post to backend API so it persists permanently in MongoDB!
+    _syncNewTransactionToBackend(tx);
+  }
+
+  Future<void> _syncNewTransactionToBackend(Map<String, dynamic> tx) async {
+    try {
+      final token = SessionService().token;
+      if (token == null || token.isEmpty) return;
+
+      final baseUrl = await ApiConfig.getActiveBaseUrl();
+      final res = await http.post(
+        Uri.parse('$baseUrl/transactions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': tx['title'] ?? 'Transaction',
+          'amount': (tx['amount'] as num?)?.toDouble() ?? 0.0,
+          'type': tx['type'] ?? 'expense',
+          'category': tx['category'] ?? 'Others',
+          'paidVia': tx['paidVia'] ?? 'UPI',
+          'isReimbursable': tx['isReimbursable'] == true,
+          'note': tx['note'] ?? '',
+          'date': tx['date'],
+        }),
+      ).timeout(const Duration(seconds: 4));
+
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final mongoId = body['data']?['_id']?.toString() ?? body['data']?['id']?.toString();
+        if (mongoId != null && mongoId.isNotEmpty) {
+          final idx = userTransactions.indexWhere((t) => t['id'] == tx['id']);
+          if (idx != -1) {
+            userTransactions[idx]['id'] = mongoId;
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
+          }
+        }
+      }
+    } catch (e) {
+      // Background sync warning
+    }
   }
 
   Future<void> resetAccountToFreshState() async {
