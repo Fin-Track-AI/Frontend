@@ -3,6 +3,7 @@ class AppRoutes {
   static const String welcome = '/onboarding/welcome';
   static const String login = '/auth/login';
   static const String signup = '/auth/signup';
+  static const String setPassword = '/auth/set-password';
   static const String phoneOtp = '/onboarding/phone-otp';
   static const String kycLite = '/onboarding/kyc-lite';
   static const String employerLink = '/onboarding/employer-link';

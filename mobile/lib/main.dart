@@ -11,6 +11,7 @@ import 'screens/profile/profile_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
+import 'screens/auth/set_password_screen.dart';
 import 'screens/onboarding/app_landing_screen.dart';
 import 'screens/onboarding/phone_otp_screen.dart';
 import 'screens/onboarding/kyc_lite_screen.dart';
@@ -57,6 +58,7 @@ class FinTrackApp extends StatelessWidget {
         AppRoutes.welcome: (context) => const AppLandingScreen(),
         AppRoutes.login: (context) => const LoginScreen(),
         AppRoutes.signup: (context) => const SignUpScreen(),
+        AppRoutes.setPassword: (context) => const SetPasswordScreen(),
         AppRoutes.phoneOtp: (context) => const PhoneOtpScreen(),
         AppRoutes.kycLite: (context) => const KycLiteScreen(),
         AppRoutes.employerLink: (context) => const EmployerLinkScreen(),

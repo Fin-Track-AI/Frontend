@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/fintrack_logo.dart';
+import 'forgot_password_modal.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _otpController = TextEditingController();
 
   bool _isPhoneMode = false;
+  bool _usePasswordMode = true;
   bool _obscurePasscode = true;
   bool _otpSent = false;
   bool _isLoading = false;
@@ -33,6 +32,71 @@ class _LoginScreenState extends State<LoginScreen> {
     _passcodeController.dispose();
     _otpController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handlePasswordLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final email = _identifierController.text.trim();
+    final password = _passcodeController.text.trim();
+
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await _authService.loginWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      final userName = res['user']?['name'] ?? 'User';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Welcome back, $userName!'),
+          backgroundColor: AppColors.green,
+        ),
+      );
+
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.mainShell, (route) => false);
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'NO_PASSWORD_SET') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No password set yet for this account. Sending OTP so you can set your password...'),
+            backgroundColor: AppColors.primary,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        try {
+          await _authService.sendEmailOtp(email: email);
+          if (!mounted) return;
+          setState(() {
+            _isLoading = false;
+            _otpSent = true;
+          });
+          return;
+        } catch (_) {}
+      }
+
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: AppColors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _handleRequestOtp() async {
@@ -99,24 +163,26 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       final userName = res['user']?['name'] ?? 'User';
-      final token = res['token'] as String?;
+      final hasPassword = res['user']?['hasPassword'] == true;
 
-      // Auto-grant consent defaults if needed
-      if (token != null && token.isNotEmpty) {
-        try {
-          http.post(
-            Uri.parse('${ApiConfig.baseUrl}/consent'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'upiConsent': true,
-              'billStorageConsent': true,
-              'aiUsageConsent': true,
-            }),
-          );
-        } catch (_) {}
+      if (!hasPassword) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Welcome, $userName! Please set a password for your account.'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.setPassword,
+          (route) => false,
+          arguments: {
+            'isFirstTime': true,
+            'email': identifier,
+          },
+        );
+        return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -296,40 +362,62 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 18),
-
-                      // Passcode / Password
-                      _buildFieldLabel('PASSCODE / PASSWORD'),
-                      TextFormField(
-                        controller: _passcodeController,
-                        obscureText: _obscurePasscode,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 4,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: '••••••',
-                          counterText: '',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePasscode ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                              color: AppColors.textMuted,
+                      // Password Field (Email mode only)
+                      if (!_isPhoneMode && _usePasswordMode) ...[
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildFieldLabel('PASSWORD'),
+                            GestureDetector(
+                              onTap: () {
+                                ForgotPasswordModal.show(
+                                  context,
+                                  initialEmail: _identifierController.text.trim(),
+                                );
+                              },
+                              child: const Text(
+                                'Forgot / Set Password?',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
-                            onPressed: () => setState(() => _obscurePasscode = !_obscurePasscode),
-                          ),
+                          ],
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().length < 4) {
-                            return 'Enter your passcode';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 32),
+                        TextFormField(
+                          controller: _passcodeController,
+                          obscureText: _obscurePasscode,
+                          keyboardType: TextInputType.visiblePassword,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Enter your account password',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePasscode ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                color: AppColors.textMuted,
+                              ),
+                              onPressed: () => setState(() => _obscurePasscode = !_obscurePasscode),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            if (value.trim().length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 28),
 
                       // Submit Button
                       SizedBox(
@@ -344,7 +432,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          onPressed: _isLoading ? null : _handleRequestOtp,
+                          onPressed: _isLoading
+                              ? null
+                              : (_isPhoneMode
+                                  ? _handleRequestOtp
+                                  : (_usePasswordMode ? _handlePasswordLogin : _handleRequestOtp)),
                           child: _isLoading
                               ? const SizedBox(
                                   width: 22,
@@ -355,7 +447,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      _isPhoneMode ? 'Sign In Directly' : 'Send One-Time Code',
+                                      _isPhoneMode
+                                          ? 'Sign In Directly'
+                                          : (_usePasswordMode ? 'Sign In with Password' : 'Send One-Time Code'),
                                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                                     ),
                                     const SizedBox(width: 8),
@@ -364,6 +458,35 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                         ),
                       ),
+
+                      // Toggle between Password and OTP for Email login
+                      if (!_isPhoneMode) ...[
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _usePasswordMode = !_usePasswordMode;
+                              });
+                            },
+                            icon: Icon(
+                              _usePasswordMode ? Icons.pin_outlined : Icons.password_rounded,
+                              size: 18,
+                              color: AppColors.textSecondary,
+                            ),
+                            label: Text(
+                              _usePasswordMode
+                                  ? 'Or sign in using One-Time Code (OTP)'
+                                  : 'Or sign in using Password',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -254,6 +254,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
+            // Account Password & Security Card
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 20),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Account Password',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _savedUser?['hasPassword'] == true
+                              ? 'Password set • Tap to update'
+                              : 'No password set • Tap to secure your account',
+                          style: TextStyle(
+                            color: _savedUser?['hasPassword'] == true ? AppColors.green : AppColors.textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: () async {
+                      await Navigator.pushNamed(
+                        context,
+                        AppRoutes.setPassword,
+                        arguments: {
+                          'isFirstTime': _savedUser?['hasPassword'] != true,
+                          'email': _savedUser?['email'],
+                        },
+                      );
+                      if (mounted) {
+                        _loadUserSession();
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary, width: 1.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      _savedUser?['hasPassword'] == true ? 'Change' : 'Set Now',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             // Monthly Salary & Financial Setup Card
             Container(
               padding: const EdgeInsets.all(18),
