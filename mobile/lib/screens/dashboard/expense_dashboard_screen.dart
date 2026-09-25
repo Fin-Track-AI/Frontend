@@ -59,7 +59,6 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
     final safeCap = _financialService.safeToSpendCap;
     final remaining = _financialService.remainingSafeToSpend;
     final discretionarySpent = _financialService.currentMonthDiscretionarySpent;
-    final totalSpent = _financialService.currentMonthSpent;
     final salary = _financialService.monthlySalary;
     final fixedCosts = _financialService.totalFixedObligations;
     final pct = _financialService.budgetUtilizedPercent;
@@ -67,7 +66,7 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const FinTrackHeader(),
+      appBar: const FinTrackHeader(showBackButton: false),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_dashboard_expense',
         onPressed: _openAddExpenseModal,
@@ -141,16 +140,27 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Remaining Safe-to-Spend', style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
+                        const Flexible(
                           child: Text(
-                            _financialService.currentCycleLabel,
-                            style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w700),
+                            'Remaining Safe-to-Spend',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _financialService.currentCycleLabel,
+                              style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w700),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
                         ),
                       ],
@@ -390,9 +400,12 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
                       tx['category'] == 'Salary' ||
                       (tx['title'] as String? ?? '').toLowerCase().contains('salary') ||
                       (tx['note'] as String? ?? '').toLowerCase().contains('salary');
+                  final formattedDate = UserFinancialService.formatDisplayDate(tx['date']);
+                  final subtitle = formattedDate.isNotEmpty ? '${tx['category']} • $formattedDate' : '${tx['category']}';
+
                   return _buildTransactionCard(
                     title: tx['title'] as String? ?? (isIncome ? 'Salary Credit' : 'Expense Entry'),
-                    category: '${tx['category']} • ${tx['date']}',
+                    category: subtitle,
                     tag: tx['paidVia'] as String? ?? (isIncome ? 'NEFT' : 'UPI'),
                     amount: isIncome
                         ? '+₹${(tx['amount'] as num).toStringAsFixed(0)}'
@@ -505,7 +518,12 @@ class _ExpenseDashboardScreenState extends State<ExpenseDashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(category, style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w500)),
+                Text(
+                  category,
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),

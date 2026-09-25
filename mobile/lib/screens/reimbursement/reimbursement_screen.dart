@@ -37,7 +37,10 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
   }
 
   Future<void> _loadClaims() async {
-    if (_authToken.isEmpty) return;
+    if (_authToken.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     try {
       // 1. Fetch employer link status
       try {
@@ -160,7 +163,7 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const FinTrackHeader(),
+      appBar: const FinTrackHeader(showBackButton: false),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_reimbursement_claim',
         onPressed: _openClaimForm,
@@ -169,11 +172,15 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
         label: const Text('Submit Claim', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-          children: [
-            // Top Badge and Subtitle
-            Row(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
+            : ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                children: [
+                  // Top Badge and Subtitle
+                  Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
@@ -265,36 +272,36 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
               ),
             ] else ...[
               Container(
-                padding: const EdgeInsets.all(14),
-                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2E1C0C),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFF97316)),
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFDBA74), width: 1.2),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.info_outline, color: Color(0xFFF97316), size: 18),
+                    const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Color(0xFFEA580C), size: 18),
                         SizedBox(width: 8),
                         Text(
                           'NOT LINKED TO AN EMPLOYER',
-                          style: TextStyle(color: Color(0xFFF97316), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+                          style: TextStyle(color: Color(0xFFC2410C), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     const Text(
                       'You must join your organization with an invite code from your employer before you can submit claims.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
+                      style: TextStyle(color: Color(0xFF7C2D12), fontSize: 12, height: 1.35),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     ElevatedButton.icon(
                       onPressed: _openEmployerLink,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF97316),
+                        backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         minimumSize: const Size(0, 36),
                       ),
@@ -585,7 +592,6 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
     required String date,
     required bool hasAuditProgress,
     String? approvalNote,
-    String? payoutNote,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -625,6 +631,29 @@ class _ReimbursementScreenState extends State<ReimbursementScreen> {
               ),
             ],
           ),
+          if (approvalNote != null && approvalNote.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.greenLight,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.greenBorder),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, size: 14, color: AppColors.green),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      approvalNote,
+                      style: const TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
