@@ -65,7 +65,7 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const FinTrackHeader(),
+      appBar: const FinTrackHeader(showBackButton: false),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -80,8 +80,8 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: const [
+                  const Row(
+                    children: [
                       Icon(Icons.chevron_left_rounded, color: AppColors.textSecondary),
                       SizedBox(width: 4),
                       Text(
@@ -117,10 +117,10 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
               const SizedBox(height: 14),
 
               // Search Bar
-              TextField(
+              const TextField(
                 decoration: InputDecoration(
                   hintText: 'Search narration, merchant, category...',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textMuted),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.textMuted),
                   filled: true,
                   fillColor: AppColors.surface,
                 ),
@@ -261,134 +261,153 @@ class _ExpensesListScreenState extends State<ExpensesListScreen> {
                               ? AppColors.green
                               : AppColors.textMuted;
 
-                  return _buildExpenseTile(
-                    icon: _txIcon(tx),
-                    iconColor: _txIconColor(tx),
-                    title: tx['title'] as String? ?? (isIncome ? 'Income Credit' : 'Expense'),
-                    category: tx['category'] as String? ?? (isIncome ? 'Salary' : 'General'),
-                    time: tx['date'] as String? ?? '',
-                    method: tx['paidVia'] as String? ?? 'UPI',
-                    badgeText: badgeText,
-                    badgeColor: badgeColor,
-                    amount: '${isIncome ? '+' : '-'}₹${amountNum.toStringAsFixed(0)}',
-                    isIncome: isIncome,
-                  );
-                }).toList(),
-              ],
+                    return _buildExpenseTile(
+                      icon: _txIcon(tx),
+                      iconColor: _txIconColor(tx),
+                      title: tx['title'] as String? ?? (isIncome ? 'Income Credit' : 'Expense'),
+                      category: tx['category'] as String? ?? (isIncome ? 'Salary' : 'General'),
+                      time: UserFinancialService.formatDisplayDate(tx['date']),
+                      method: tx['paidVia'] as String? ?? 'UPI',
+                      badgeText: badgeText,
+                      badgeColor: badgeColor,
+                      amount: '${isIncome ? '+' : '-'}₹${amountNum.toStringAsFixed(0)}',
+                      isIncome: isIncome,
+                    );
+                  }),
+                ],
 
-              const SizedBox(height: 24),
-              const AskAiPill(),
-            ],
+                const SizedBox(height: 24),
+                const AskAiPill(),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  IconData _txIcon(Map<String, dynamic> tx) {
-    if (tx['type'] == 'income') return Icons.arrow_downward_rounded;
-    if (tx['source'] == 'statement') return Icons.account_balance_outlined;
-    return Icons.shopping_bag_outlined;
-  }
+    IconData _txIcon(Map<String, dynamic> tx) {
+      if (tx['type'] == 'income') return Icons.arrow_downward_rounded;
+      if (tx['source'] == 'statement') return Icons.account_balance_outlined;
+      return Icons.shopping_bag_outlined;
+    }
 
-  Color _txIconColor(Map<String, dynamic> tx) {
-    if (tx['type'] == 'income') return AppColors.green;
-    if (tx['source'] == 'statement') return AppColors.primary;
-    return AppColors.primary;
-  }
+    Color _txIconColor(Map<String, dynamic> tx) {
+      if (tx['type'] == 'income') return AppColors.green;
+      if (tx['source'] == 'statement') return AppColors.primary;
+      return AppColors.primary;
+    }
 
-  Widget _buildTimelineHeader(String primary, String secondary, String total) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
+    Widget _buildTimelineHeader(String primary, String secondary, String total) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Text(primary, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 6),
+              Text(secondary, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            ],
+          ),
+          Text(total, style: const TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w700)),
+        ],
+      );
+    }
+
+    Widget _buildExpenseTile({
+      required IconData icon,
+      required Color iconColor,
+      required String title,
+      required String category,
+      required String time,
+      required String method,
+      required String badgeText,
+      Color? badgeColor,
+      required String amount,
+      bool isIncome = false,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(primary, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
-            const SizedBox(width: 6),
-            Text(secondary, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    category,
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(method, style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (badgeColor ?? AppColors.textMuted).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(color: badgeColor ?? AppColors.textSecondary, fontSize: 9, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  amount,
+                  style: TextStyle(
+                    color: isIncome ? AppColors.green : AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  time,
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ],
         ),
-        Text(total, style: const TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w700)),
-      ],
-    );
-  }
-
-  Widget _buildExpenseTile({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String category,
-    required String time,
-    required String method,
-    required String badgeText,
-    Color? badgeColor,
-    required String amount,
-    bool isIncome = false,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text(category, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(method, style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: (badgeColor ?? AppColors.textMuted).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        badgeText,
-                        style: TextStyle(color: badgeColor ?? AppColors.textSecondary, fontSize: 9, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                amount,
-                style: TextStyle(
-                  color: isIncome ? AppColors.green : AppColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(time, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+      );
+    }
 }

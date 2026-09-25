@@ -69,6 +69,43 @@ class UserFinancialService {
     return sum;
   }
 
+  /// Robust sanitizer to extract YYYY-MM-DD from string, ISO timestamp, or character-index map
+  static String extractCleanDate(dynamic raw) {
+    if (raw == null) return '';
+    if (raw is Map) {
+      final entries = raw.entries.toList();
+      entries.sort((a, b) => (int.tryParse(a.key.toString()) ?? 0).compareTo(int.tryParse(b.key.toString()) ?? 0));
+      final joined = entries.map((e) => e.value.toString()).join();
+      return joined.contains('T') ? joined.split('T')[0] : joined;
+    }
+    final str = raw.toString().trim();
+    if (str.startsWith('{') && str.contains(':')) {
+      final reg = RegExp(r'\d+:\s*([^\s,}]+)');
+      final matches = reg.allMatches(str);
+      if (matches.isNotEmpty) {
+        final joined = matches.map((m) => (m.group(1) ?? '').replaceAll('"', '').replaceAll("'", '')).join();
+        return joined.contains('T') ? joined.split('T')[0] : joined;
+      }
+    }
+    return str.contains('T') ? str.split('T')[0] : str;
+  }
+
+  /// Formats date for user-friendly display (e.g., '26 Sep 2026' or '26 Sep')
+  static String formatDisplayDate(dynamic rawDate, {bool includeYear = false}) {
+    final clean = extractCleanDate(rawDate);
+    if (clean.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(clean);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      if (includeYear) {
+        return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+      }
+      return '${dt.day} ${months[dt.month - 1]}';
+    } catch (_) {
+      return clean;
+    }
+  }
+
   /// Returns the latest salary transaction, if any
   Map<String, dynamic>? get latestSalaryTransaction {
     Map<String, dynamic>? latest;
@@ -78,9 +115,10 @@ class UserFinancialService {
               ((tx['title'] as String? ?? '').toLowerCase().contains('salary') ||
                (tx['note'] as String? ?? '').toLowerCase().contains('salary')));
       if (isSalary) {
-        final d = (tx['date'] as String? ?? '').trim();
+        final d = extractCleanDate(tx['date']);
         if (d.isNotEmpty) {
-          if (latest == null || d.compareTo(latest['date'] as String? ?? '') > 0) {
+          final latestD = extractCleanDate(latest?['date']);
+          if (latest == null || d.compareTo(latestD) > 0) {
             latest = tx;
           }
         }
@@ -93,7 +131,7 @@ class UserFinancialService {
   String get currentCycleStartDate {
     final salaryTx = latestSalaryTransaction;
     if (salaryTx != null) {
-      final d = (salaryTx['date'] as String? ?? '').trim();
+      final d = extractCleanDate(salaryTx['date']);
       if (d.isNotEmpty) return d;
     }
     return '$activeMonth-01';
@@ -103,18 +141,18 @@ class UserFinancialService {
   String get currentCycleLabel {
     final salaryTx = latestSalaryTransaction;
     if (salaryTx != null) {
-      final d = (salaryTx['date'] as String? ?? '').trim();
+      final d = extractCleanDate(salaryTx['date']);
       if (d.isNotEmpty) {
         try {
           final dt = DateTime.parse(d);
-          final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          return 'Cycle: Since ${dt.day} ${months[dt.month - 1]} Salary';
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return 'Cycle: Since ${dt.day} ${months[dt.month - 1]}';
         } catch (_) {
-          return 'Cycle: Since $d Salary';
+          return 'Cycle: $activeMonth';
         }
       }
     }
-    return 'Active Month: $activeMonth';
+    return 'Cycle: $activeMonth';
   }
 
   /// Discretionary expenses in the active spending cycle (since latest salary arrived).
@@ -251,7 +289,11 @@ class UserFinancialService {
     if (txStr != null && txStr.isNotEmpty) {
       try {
         final List decoded = jsonDecode(txStr);
-        userTransactions = decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        userTransactions = decoded.map((e) {
+          final map = Map<String, dynamic>.from(e as Map);
+          map['date'] = extractCleanDate(map['date']);
+          return map;
+        }).toList();
       } catch (_) {
         userTransactions = [];
       }
@@ -311,8 +353,7 @@ class UserFinancialService {
         if (rawList != null) {
           final backendTxns = rawList.map((tx) {
             final map = tx as Map<String, dynamic>;
-            final dateRaw = map['date']?.toString() ?? '';
-            final dateStr = dateRaw.contains('T') ? dateRaw.split('T')[0] : dateRaw;
+            final dateStr = extractCleanDate(map['date']);
 
             return {
               'id': map['_id']?.toString() ?? map['id']?.toString() ?? '',
@@ -341,8 +382,14 @@ class UserFinancialService {
     double? overrideSalary,
     double? overrideRent,
   }) async {
+    final sanitizedList = transactions.map((t) {
+      final copy = Map<String, dynamic>.from(t);
+      copy['date'] = extractCleanDate(copy['date']);
+      return copy;
+    }).toList();
+
     // Prepend new statement transactions
-    userTransactions.insertAll(0, transactions);
+    userTransactions.insertAll(0, sanitizedList);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userKey('transactions'), jsonEncode(userTransactions));
 
@@ -421,7 +468,7 @@ class UserFinancialService {
       'title': title,
       'category': category,
       'amount': amount,
-      'date': dateString ?? todayIso,
+      'date': extractCleanDate(dateString ?? todayIso),
       'paidVia': paidVia ?? 'UPI',
       'isReimbursable': isReimbursable,
     };
@@ -449,12 +496,5 @@ class UserFinancialService {
     await prefs.remove(_userKey('bills'));
     await prefs.remove(_userKey('emi'));
     await prefs.remove(_userKey('transactions'));
-  }
-
-  String _formatTime(DateTime dt) {
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '$hour:$minute $period';
   }
 }

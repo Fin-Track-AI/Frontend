@@ -34,16 +34,7 @@ class _AddSplitExpenseModalState extends State<AddSplitExpenseModal> with Single
 
   late TabController _tabController;
   late String _selectedPayerId;
-  String _selectedCategory = 'Food & Dining';
-
-  final List<String> _categories = [
-    'Food & Dining',
-    'Travel & Commute',
-    'Entertainment',
-    'Groceries',
-    'Rent & Utilities',
-    'General',
-  ];
+  final String _selectedCategory = 'Food & Dining';
 
   // Equal Split State
   late Set<String> _equalSelectedMemberIds;
@@ -302,19 +293,31 @@ class _AddSplitExpenseModalState extends State<AddSplitExpenseModal> with Single
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Text(widget.group.icon, style: const TextStyle(fontSize: 22)),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Add Expense to ${widget.group.name}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                        const SizedBox(height: 2),
-                        const Text('BR-17: Equal, Itemized or % Split (100% Reconciled)', style: TextStyle(fontSize: 10.5, color: AppColors.textMuted)),
-                      ],
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(widget.group.icon, style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Add Expense to ${widget.group.name}',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'BR-17: Equal, Itemized or % Split (100% Reconciled)',
+                              style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),

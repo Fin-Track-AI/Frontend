@@ -12,6 +12,7 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onNotificationTap;
   final VoidCallback? onProfileTap;
   final VoidCallback? onLogoTap;
+  final bool? showBackButton;
 
   const FinTrackHeader({
     super.key,
@@ -19,6 +20,7 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onNotificationTap,
     this.onProfileTap,
     this.onLogoTap,
+    this.showBackButton,
   });
 
   @override
@@ -48,19 +50,19 @@ class FinTrackHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canPop = Navigator.canPop(context);
+    final shouldShowBack = showBackButton ?? Navigator.canPop(context);
 
     return AppBar(
       backgroundColor: AppColors.background,
       elevation: 0,
       automaticallyImplyLeading: false,
-      leading: canPop
+      leading: shouldShowBack
           ? IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
               onPressed: () => Navigator.pop(context),
             )
           : null,
-      titleSpacing: canPop ? 0.0 : 12.0,
+      titleSpacing: shouldShowBack ? 0.0 : 12.0,
       title: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
