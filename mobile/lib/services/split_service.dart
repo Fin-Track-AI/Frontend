@@ -292,7 +292,7 @@ class SplitService extends ChangeNotifier {
     }
 
     // Keep notification center in sync
-    NotificationService().updateActionStatusForGroup(groupId, action);
+    NotificationService().updateActionStatusForGroup(groupId, accept ? 'ACCEPTED' : 'DECLINED');
 
     try {
       final token = SessionService().token;
@@ -737,7 +737,8 @@ class SplitService extends ChangeNotifier {
       body: invitedMembers.isNotEmpty
           ? 'Invitations sent to $invitedNames.'
           : 'Split group "${newGroup.name}" created.',
-      type: NotificationType.invitation,
+      type: NotificationType.system,
+      actionStatus: 'ACCEPTED',
       data: {'groupId': newGroup.id, 'groupName': newGroup.name},
     );
 

@@ -19,74 +19,50 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   bool _isLoading = false;
 
   final List<String> _suggestions = [
-    'How can I reach my ₹10,000 monthly savings goal?',
+    'Where did I spend money this month?',
+    'What subscriptions do I have active?',
     'Show all reimbursable receipts',
     'Who owes me money right now?',
-    'Analyze my grocery habits',
+    'How can I reach my savings goal?',
   ];
 
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'isUser': true,
-      'text': 'Where did I overspend this month compared to August?',
-    },
-    {
-      'isUser': false,
-      'data': {
-        'alertTag': 'SPEND VELOCITY ALERT',
-        'alertSub': '1–12 Sep vs Aug',
-        'intro': 'Here is what stands out in your September spending (1–12 Sep):',
-        'items': [
-          {
-            'icon': 'restaurant',
-            'title': 'Food & Dining',
-            'diff': '+18% MoM',
-            'diffColor': '#EF4444',
-            'desc': '₹3,240 vs ₹2,700 pace. 7 Swiggy orders accounted for ₹2,450.',
-          },
-          {
-            'icon': 'transit',
-            'title': 'Transit Mobility',
-            'diff': '+₹680 Surge',
-            'diffColor': '#F59E0B',
-            'desc': 'Weekend Uber rides to Indiranagar spiked by ₹680 during late hours.',
-          },
-        ],
-        'tipBox': 'Limiting weekend food delivery to 2 orders could save approx ₹1,200 this month.',
-        'footerNote': 'Computed across 28 ledger entries',
-      },
-    },
-    {
-      'isUser': true,
-      'text': 'What subscriptions do I have active?',
-    },
-    {
-      'isUser': false,
-      'data': {
-        'alertTag': 'RECURRING COMMITMENTS',
-        'alertSub': 'Active Autopay',
-        'intro': 'You have 3 active auto-detected recurring subscriptions totaling ₹1,298/mo:',
-        'items': [
-          {
-            'icon': 'movie',
-            'title': 'Netflix India',
-            'diff': '₹199/mo',
-            'diffColor': '#E50914',
-            'desc': 'Next billing date: 18th of this month • Auto-debit active',
-          },
-          {
-            'icon': 'music',
-            'title': 'Spotify Premium',
-            'diff': '₹119/mo',
-            'diffColor': '#1DB954',
-            'desc': 'Next billing date: 24th of this month • Auto-debit active',
-          },
-        ],
-        'badgeSuccess': 'No hidden recurring charges detected in your ledger.',
-        'footerAction': 'Manage Auto-mandates →',
-      },
-    },
-  ];
+  final List<Map<String, dynamic>> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInitialGroundingSummary();
+  }
+
+  Future<void> _fetchInitialGroundingSummary() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final token = SessionService().token ?? '';
+      final responseData = await _aiService.sendChatMessage(
+        prompt: 'Give me an overview of my spending and financial status',
+        authToken: token,
+      );
+
+      if (mounted) {
+        setState(() {
+          _messages.add({
+            'isUser': false,
+            'data': responseData,
+          });
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   Future<void> _sendMessage(String text) async {
     final query = text.trim();
@@ -130,7 +106,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               'alertSub': 'FinTrack Engine',
               'intro': 'AI Analysis Output:',
               'reply': 'Unable to connect to AI grounding backend: ${e.toString().replaceAll('Exception: ', '')}',
-              'tipBox': 'Make sure you are logged in and your backend server is running.',
+              'tipBox': 'Make sure your backend server is running and your account has active transactions.',
             },
           });
           _isLoading = false;
@@ -181,6 +157,32 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       default:
         return Icons.auto_awesome;
     }
+  }
+
+  Widget _buildSuggestedChipsRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: Row(
+        children: _suggestions.map((s) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              backgroundColor: AppColors.surfaceMuted,
+              side: const BorderSide(color: AppColors.border),
+              avatar: const Icon(Icons.auto_awesome, size: 14, color: AppColors.primary),
+              label: Text(
+                s,
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+              onPressed: () {
+                _sendMessage(s);
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   @override
@@ -275,11 +277,38 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 14),
+
+                  // ALWAYS VISIBLE TOP SUGGESTED INQUIRIES SECTION
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('SUGGESTED INQUIRIES', style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                              Text('Tap to ask AI', style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        _buildSuggestedChipsRow(),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
                   // Timestamp
                   const Center(
-                    child: Text('Today, Live Session', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+                    child: Text('Live Session • Grounded in Real Data', style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(height: 12),
 
@@ -349,9 +378,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
             ),
 
-            // SUGGESTED INQUIRIES & INPUT BAR
+            // FIXED DOCKED INPUT BAR WITH QUICK CHIPS
             Container(
-              padding: const EdgeInsets.only(top: 10, bottom: 12),
+              padding: const EdgeInsets.only(top: 8, bottom: 12),
               decoration: const BoxDecoration(
                 color: AppColors.surface,
                 border: Border(top: BorderSide(color: AppColors.border)),
@@ -359,36 +388,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('SUGGESTED INQUIRIES', style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-                        Text('Tap to ask', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                  ),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    child: Row(
-                      children: _suggestions.map((s) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ActionChip(
-                            backgroundColor: AppColors.surfaceMuted,
-                            side: const BorderSide(color: AppColors.border),
-                            label: Text(s, style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w600)),
-                            onPressed: () {
-                              _sendMessage(s);
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  _buildSuggestedChipsRow(),
+                  const SizedBox(height: 6),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
@@ -398,7 +399,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                             controller: _chatController,
                             onSubmitted: _sendMessage,
                             decoration: const InputDecoration(
-                              hintText: 'Ask anything about your money, budgets, or bills...',
+                              hintText: 'Ask about your real spending, claims, or bills...',
                               fillColor: AppColors.surfaceMuted,
                               prefixIcon: Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textMuted, size: 20),
                               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -542,12 +543,20 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ],
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               if (footerNote != null)
-                Text(footerNote, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-              if (footerAction != null)
+                Expanded(
+                  child: Text(
+                    footerNote,
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              if (footerAction != null) ...[
+                const SizedBox(width: 8),
                 Text(footerAction, style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800)),
+              ],
+              const SizedBox(width: 8),
               const Row(
                 children: [
                   Icon(Icons.thumb_up_alt_outlined, size: 14, color: AppColors.textMuted),
@@ -576,15 +585,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(icon, size: 16, color: AppColors.textPrimary),
-                  const SizedBox(width: 6),
-                  Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
-                ],
+              Icon(icon, size: 16, color: AppColors.textPrimary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Text(diff, style: TextStyle(color: diffColor, fontSize: 12, fontWeight: FontWeight.w800)),
             ],
           ),
