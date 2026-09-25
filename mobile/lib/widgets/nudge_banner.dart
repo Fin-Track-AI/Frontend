@@ -128,6 +128,8 @@ class NudgeBanner extends StatelessWidget {
                 child: Text(
                   actionText!,
                   style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),

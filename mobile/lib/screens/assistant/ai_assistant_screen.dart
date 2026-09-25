@@ -542,12 +542,20 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ],
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               if (footerNote != null)
-                Text(footerNote, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-              if (footerAction != null)
+                Expanded(
+                  child: Text(
+                    footerNote,
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              if (footerAction != null) ...[
+                const SizedBox(width: 8),
                 Text(footerAction, style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800)),
+              ],
+              const SizedBox(width: 8),
               const Row(
                 children: [
                   Icon(Icons.thumb_up_alt_outlined, size: 14, color: AppColors.textMuted),
@@ -576,15 +584,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(icon, size: 16, color: AppColors.textPrimary),
-                  const SizedBox(width: 6),
-                  Text(title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
-                ],
+              Icon(icon, size: 16, color: AppColors.textPrimary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Text(diff, style: TextStyle(color: diffColor, fontSize: 12, fontWeight: FontWeight.w800)),
             ],
           ),
