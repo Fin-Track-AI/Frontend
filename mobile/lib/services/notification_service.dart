@@ -135,12 +135,33 @@ class NotificationService extends ChangeNotifier {
           final List<dynamic> list = data['data'] as List<dynamic>;
           final backendNotifs = list.map((e) => AppNotification.fromJson(e as Map<String, dynamic>)).toList();
 
-          final existingIds = {for (final n in _notifications) n.id};
           bool changed = false;
           for (final bn in backendNotifs) {
-            if (!existingIds.contains(bn.id)) {
+            final bnGroupId = bn.data?['groupId']?.toString();
+
+            // Match by exact ID or by duplicate content / groupId
+            final idx = _notifications.indexWhere((n) {
+              if (n.id == bn.id) return true;
+              if (bnGroupId != null && bnGroupId.isNotEmpty && n.data?['groupId']?.toString() == bnGroupId && n.type == bn.type) {
+                return true;
+              }
+              if (n.title.trim() == bn.title.trim() && n.body.trim() == bn.body.trim() && n.type == bn.type) {
+                return true;
+              }
+              return false;
+            });
+
+            if (idx == -1) {
               _notifications.add(bn);
-              existingIds.add(bn.id);
+              changed = true;
+            } else {
+              // Preserve any accepted/declined local status if backend is null
+              final existingStatus = _notifications[idx].actionStatus;
+              final finalStatus = bn.actionStatus ?? existingStatus;
+              _notifications[idx] = bn.copyWith(
+                actionStatus: finalStatus,
+                isRead: bn.isRead || _notifications[idx].isRead,
+              );
               changed = true;
             }
           }
@@ -169,14 +190,18 @@ class NotificationService extends ChangeNotifier {
     required String body,
     required NotificationType type,
     Map<String, dynamic>? data,
+    String? actionStatus,
   }) async {
-    // Avoid duplicate invitation notifications for the same group
-    if (type == NotificationType.invitation && data?['groupId'] != null) {
-      final exists = _notifications.any(
-        (n) => n.type == NotificationType.invitation && n.data?['groupId'] == data!['groupId'],
-      );
-      if (exists) return;
-    }
+    final groupId = data?['groupId']?.toString();
+    // Strict deduplication check
+    final exists = _notifications.any((n) {
+      if (groupId != null && groupId.isNotEmpty && n.data?['groupId']?.toString() == groupId && n.type == type) {
+        return true;
+      }
+      return n.type == type && n.title.trim() == title.trim() && n.body.trim() == body.trim();
+    });
+
+    if (exists) return;
 
     final notif = AppNotification(
       id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
@@ -185,6 +210,7 @@ class NotificationService extends ChangeNotifier {
       type: type,
       timestamp: DateTime.now(),
       data: data,
+      actionStatus: actionStatus,
     );
 
     _notifications.insert(0, notif);
@@ -210,19 +236,47 @@ class NotificationService extends ChangeNotifier {
   Future<void> updateActionStatus(String id, String status) async {
     final idx = _notifications.indexWhere((n) => n.id == id);
     if (idx != -1) {
-      _notifications[idx] = _notifications[idx].copyWith(
+      final targetNotif = _notifications[idx];
+      final targetGroupId = targetNotif.data?['groupId']?.toString();
+
+      _notifications[idx] = targetNotif.copyWith(
         actionStatus: status,
         isRead: true,
       );
+
+      if (targetGroupId != null && targetGroupId.isNotEmpty) {
+        updateActionStatusForGroup(targetGroupId, status);
+      }
+
       await _save();
       notifyListeners();
+
+      // Sync action update to backend if valid backend ID
+      if (!id.startsWith('notif_')) {
+        try {
+          final token = SessionService().token;
+          if (token != null && token.isNotEmpty) {
+            final uri = Uri.parse('${ApiConfig.baseUrl}/notifications/$id/action');
+            await http.put(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({'action': status}),
+            ).timeout(const Duration(seconds: 3));
+          }
+        } catch (e) {
+          debugPrint('Backend update notification action error: $e');
+        }
+      }
     }
   }
 
   Future<void> updateActionStatusForGroup(String groupId, String status) async {
     bool changed = false;
     for (int i = 0; i < _notifications.length; i++) {
-      if (_notifications[i].data?['groupId'] == groupId) {
+      if (_notifications[i].data?['groupId']?.toString() == groupId) {
         _notifications[i] = _notifications[i].copyWith(
           actionStatus: status,
           isRead: true,

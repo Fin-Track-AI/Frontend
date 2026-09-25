@@ -118,12 +118,12 @@ class NotificationCenterModal extends StatelessWidget {
                 final list = notificationService.notifications;
 
                 if (list.isEmpty) {
-                  return Center(
+                  return const Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(32.0),
+                      padding: EdgeInsets.all(32.0),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
+                        children: [
                           Icon(Icons.notifications_off_outlined, size: 48, color: AppColors.textMuted),
                           SizedBox(height: 12),
                           Text(
@@ -213,131 +213,154 @@ class _NotificationTile extends StatelessWidget {
     final groupId = notification.data?['groupId'] as String?;
     final actionStatus = notification.actionStatus;
 
-    return Container(
-      color: isUnread ? AppColors.primaryLight.withOpacity(0.3) : Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: _getIconColor().withOpacity(0.12),
-            child: Icon(_getIcon(), size: 18, color: _getIconColor()),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        notification.title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
-                          color: AppColors.textPrimary,
+    final isJoined = actionStatus == 'ACCEPTED' || actionStatus == 'ACCEPT';
+    final isDeclined = actionStatus == 'DECLINED';
+
+    return InkWell(
+      onTap: () async {
+        await NotificationService().markAsRead(notification.id);
+        if (isInvitation && groupId != null && !isJoined && !isDeclined) {
+          final splitService = SplitService();
+          await splitService.respondToInvitation(groupId, true);
+          await NotificationService().updateActionStatusForGroup(groupId, 'ACCEPTED');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                backgroundColor: AppColors.green,
+                content: Text('Joined group successfully!'),
+              ),
+            );
+          }
+        }
+      },
+      child: Container(
+        color: isUnread ? AppColors.primaryLight.withOpacity(0.3) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: _getIconColor().withOpacity(0.12),
+              child: Icon(_getIcon(), size: 18, color: _getIconColor()),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          notification.title,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      timeAgo,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  notification.body,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
-                ),
-
-                // Invitation Interactive Actions
-                if (isInvitation && groupId != null) ...[
-                  const SizedBox(height: 10),
-                  if (actionStatus == 'ACCEPTED')
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.greenLight,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.greenBorder),
+                      Text(
+                        timeAgo,
+                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.check, size: 14, color: AppColors.green),
-                          SizedBox(width: 4),
-                          Text('Joined group', style: TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.body,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
+                  ),
+
+                  // Invitation Interactive Actions
+                  if (isInvitation && groupId != null) ...[
+                    const SizedBox(height: 10),
+                    if (isJoined)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.greenLight,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.greenBorder),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, size: 14, color: AppColors.green),
+                            SizedBox(width: 4),
+                            Text('Joined group', style: TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      )
+                    else if (isDeclined)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('Invitation declined', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                      )
+                    else
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: () async {
+                              final splitService = SplitService();
+                              await splitService.respondToInvitation(groupId, true);
+                              await NotificationService().updateActionStatusForGroup(groupId, 'ACCEPTED');
+                              await NotificationService().updateActionStatus(notification.id, 'ACCEPTED');
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    backgroundColor: AppColors.green,
+                                    content: Text('Joined group successfully!'),
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.green,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            child: const Text(
+                              'Accept & Join',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: () async {
+                              final splitService = SplitService();
+                              await splitService.respondToInvitation(groupId, false);
+                              await NotificationService().updateActionStatusForGroup(groupId, 'DECLINED');
+                              await NotificationService().updateActionStatus(notification.id, 'DECLINED');
+                            },
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              side: const BorderSide(color: AppColors.border),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            child: const Text(
+                              'Decline',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                          ),
                         ],
                       ),
-                    )
-                  else if (actionStatus == 'DECLINED')
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text('Invitation declined', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                    )
-                  else
-                    Row(
-                      children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            final splitService = SplitService();
-                            await splitService.respondToInvitation(groupId, true);
-                            await NotificationService().updateActionStatus(notification.id, 'ACCEPTED');
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  backgroundColor: AppColors.green,
-                                  content: Text('Joined group successfully!'),
-                                ),
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.green,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                          ),
-                          child: const Text(
-                            'Accept & Join',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () async {
-                            final splitService = SplitService();
-                            await splitService.respondToInvitation(groupId, false);
-                            await NotificationService().updateActionStatus(notification.id, 'DECLINED');
-                          },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            side: const BorderSide(color: AppColors.border),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                          ),
-                          child: const Text(
-                            'Decline',
-                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                          ),
-                        ),
-                      ],
-                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
